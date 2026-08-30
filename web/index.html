@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>baby-model &middot; your private document model</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>baby-model</h1>
+      <p class="tagline">A model that only knows <em>your</em> documents.</p>
+      <div id="session-bar" class="session-bar" hidden>
+        <span id="session-email"></span>
+        <button id="export-button" type="button" class="link">Export my data</button>
+        <button id="delete-account-button" type="button" class="link danger">Delete account</button>
+        <button id="logout-button" type="button" class="link">Sign out</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="auth-view" class="card">
+        <h2>Sign in or create your private vault</h2>
+        <form id="auth-form">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="username" required />
+          <label for="password">Password (minimum 12 characters)</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            minlength="12"
+            required
+          />
+          <div class="actions">
+            <button id="login-button" type="submit">Sign in</button>
+            <button id="register-button" type="button" class="secondary">Create account</button>
+          </div>
+        </form>
+        <p class="hint">
+          Documents are encrypted at rest with a key unique to your account and are never shared
+          with any third party or external model provider.
+        </p>
+      </section>
+
+      <section id="app-view" hidden>
+        <div class="card">
+          <h2>Add a document</h2>
+          <form id="upload-form">
+            <label for="title">Title</label>
+            <input id="title" name="title" type="text" maxlength="200" required />
+            <label for="category">Category</label>
+            <select id="category" name="category">
+              <option value="health">Health</option>
+              <option value="finance">Finance</option>
+              <option value="professional">Professional</option>
+              <option value="education">Education</option>
+              <option value="other">Other</option>
+            </select>
+            <label for="content">Paste text</label>
+            <textarea id="content" name="content" rows="5"></textarea>
+            <label for="file">…or upload a UTF-8 text file</label>
+            <input id="file" name="file" type="file" accept=".txt,.md,.csv,.json,text/*" />
+            <div class="actions"><button type="submit">Save securely</button></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Ask your documents</h2>
+          <form id="ask-form">
+            <label for="question">Question</label>
+            <input id="question" name="question" type="text" maxlength="500" required />
+            <div class="actions"><button type="submit">Ask</button></div>
+          </form>
+          <div id="answer" class="answer" hidden></div>
+        </div>
+
+        <div class="card">
+          <h2>Your documents</h2>
+          <ul id="document-list" class="documents"></ul>
+        </div>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <footer>
+      <p>
+        Private by design: no analytics, no third-party requests, encrypted storage, full export and
+        erasure controls.
+      </p>
+    </footer>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
