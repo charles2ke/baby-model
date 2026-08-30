@@ -2,31 +2,34 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="referrer" content="no-referrer" />
     <meta
       name="robots"
       content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, noai, noimageai"
     />
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+    <meta name="theme-color" content="#0f172a" />
     <title>baby-model &middot; your private document model</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="topbar">
-      <h1>baby-model</h1>
+      <p class="brand">baby-model</p>
       <p class="tagline">A model that only knows <em>your</em> documents.</p>
-      <div id="session-bar" class="session-bar" hidden>
-        <span id="session-email"></span>
-        <button id="export-button" type="button" class="link">Export my data</button>
-        <button id="delete-account-button" type="button" class="link danger">Delete account</button>
-        <button id="logout-button" type="button" class="link">Sign out</button>
-      </div>
     </header>
 
-    <main>
-      <section id="auth-view" class="card">
-        <h2>Sign in or create your private vault</h2>
+    <nav id="tabbar" class="tabbar" aria-label="Sections" hidden>
+      <a id="tab-ask" class="tab tab-primary" href="#/ask">Ask</a>
+      <span class="tab-divider" aria-hidden="true"></span>
+      <a id="tab-add" class="tab" href="#/add">Add</a>
+      <a id="tab-documents" class="tab" href="#/documents">Documents</a>
+      <a id="tab-account" class="tab" href="#/account">Account</a>
+    </nav>
+
+    <main id="main">
+      <section id="signin-page" class="page card">
+        <h1 tabindex="-1">Sign in or create your private vault</h1>
         <form id="auth-form">
           <label for="email">Email</label>
           <input id="email" name="email" type="email" autocomplete="username" required />
@@ -39,7 +42,7 @@
             minlength="12"
             required
           />
-          <div class="actions">
+          <div class="actions stack">
             <button id="login-button" type="submit">Sign in</button>
             <button id="register-button" type="button" class="secondary">Create account</button>
           </div>
@@ -50,42 +53,66 @@
         </p>
       </section>
 
-      <section id="app-view" hidden>
-        <div class="card">
-          <h2>Add a document</h2>
-          <form id="upload-form">
-            <label for="title">Title</label>
-            <input id="title" name="title" type="text" maxlength="200" required />
-            <label for="category">Category</label>
-            <select id="category" name="category">
-              <option value="health">Health</option>
-              <option value="finance">Finance</option>
-              <option value="professional">Professional</option>
-              <option value="education">Education</option>
-              <option value="other">Other</option>
-            </select>
-            <label for="content">Paste text</label>
-            <textarea id="content" name="content" rows="5"></textarea>
-            <label for="file">…or upload a UTF-8 text file</label>
-            <input id="file" name="file" type="file" accept=".txt,.md,.csv,.json,text/*" />
-            <div class="actions"><button type="submit">Save securely</button></div>
-          </form>
-        </div>
+      <section id="ask-page" class="page ask" hidden>
+        <h1 tabindex="-1">Ask your documents</h1>
+        <p class="page-intro">One question at a time, answered only from what you have stored.</p>
+        <form id="ask-form" class="ask-form">
+          <label for="question">Question</label>
+          <input
+            id="question"
+            name="question"
+            type="text"
+            maxlength="500"
+            autocomplete="off"
+            enterkeyhint="search"
+            placeholder="What was my HDL cholesterol?"
+            required
+          />
+          <div class="actions"><button type="submit" class="primary-cta">Ask</button></div>
+        </form>
+        <div id="answer" class="answer" hidden></div>
+      </section>
 
-        <div class="card">
-          <h2>Ask your documents</h2>
-          <form id="ask-form">
-            <label for="question">Question</label>
-            <input id="question" name="question" type="text" maxlength="500" required />
-            <div class="actions"><button type="submit">Ask</button></div>
-          </form>
-          <div id="answer" class="answer" hidden></div>
-        </div>
+      <section id="add-page" class="page card" hidden>
+        <h1 tabindex="-1">Add a document</h1>
+        <p class="page-intro">Paste text or upload a UTF-8 text file to teach your private model.</p>
+        <form id="upload-form">
+          <label for="title">Title</label>
+          <input id="title" name="title" type="text" maxlength="200" required />
+          <label for="category">Category</label>
+          <select id="category" name="category">
+            <option value="health">Health</option>
+            <option value="finance">Finance</option>
+            <option value="professional">Professional</option>
+            <option value="education">Education</option>
+            <option value="other">Other</option>
+          </select>
+          <label for="content">Paste text</label>
+          <textarea id="content" name="content" rows="6"></textarea>
+          <label for="file">…or upload a UTF-8 text file</label>
+          <input id="file" name="file" type="file" accept=".txt,.md,.csv,.json,text/*" />
+          <div class="actions"><button type="submit">Save securely</button></div>
+        </form>
+      </section>
 
-        <div class="card">
-          <h2>Your documents</h2>
-          <ul id="document-list" class="documents"></ul>
+      <section id="documents-page" class="page card" hidden>
+        <h1 tabindex="-1">Your documents</h1>
+        <p class="page-intro">Everything stored in your vault, encrypted at rest.</p>
+        <ul id="document-list" class="documents"></ul>
+      </section>
+
+      <section id="account-page" class="page card" hidden>
+        <h1 tabindex="-1">Your account</h1>
+        <p class="page-intro">Signed in as <span id="session-email"></span>.</p>
+        <div class="actions stack">
+          <button id="export-button" type="button" class="secondary">Export my data</button>
+          <button id="logout-button" type="button" class="secondary">Sign out</button>
+          <button id="delete-account-button" type="button" class="danger">Delete account</button>
         </div>
+        <p class="hint">
+          Exporting downloads every document you have stored. Deleting your account erases the
+          account, its documents and their encryption keys for good.
+        </p>
       </section>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>

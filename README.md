@@ -37,6 +37,14 @@ extraction all run locally inside the application process.
 ### One click erases the account and every stored document
 
 ![One click erases the account and every stored document](docs/screenshots/06-account-erased.png)
+
+### Asking a question is a page of its own and the primary action on mobile
+
+![Asking a question is a page of its own and the primary action on mobile](docs/screenshots/07-mobile-ask.png)
+
+### Every page does one thing, with a thumb-friendly tab bar on small screens
+
+![Every page does one thing, with a thumb-friendly tab bar on small screens](docs/screenshots/08-mobile-documents.png)
 <!-- screenshots:end -->
 
 ## Features
@@ -45,6 +53,11 @@ extraction all run locally inside the application process.
   `health`, `finance`, `professional`, `education` or `other`.
 - **Grounded question answering** — TF-IDF retrieval over your own chunks plus
   extractive answering, with citations back to the document and section.
+- **One job per page** — asking a question, adding a document, browsing the vault
+  and managing the account each get their own page, reached from a tab bar.
+- **Mobile first** — a thumb-friendly bottom tab bar, full-width controls, large
+  tap targets and safe-area padding on phones; the same tabs move to the top on
+  larger screens.
 - **Explicit refusals** — if nothing relevant is found, the model answers
   “I can only answer from your own documents…”, never inventing facts.
 - **Strict isolation** — every query and document lookup is scoped by the owner's
@@ -88,7 +101,8 @@ extraction all run locally inside the application process.
 ## Architecture
 
 ```
-web/                 Static portal (no framework, CSP-friendly, no third-party requests)
+web/                 Static portal: one page per task (#/ask, #/add, #/documents,
+                     #/account), mobile first, CSP-friendly, no third-party requests
 server/src/app.ts    Express application: auth, documents, question answering
 server/src/lib/
   config.ts          Environment configuration and master key loading

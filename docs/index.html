@@ -31,12 +31,21 @@ extraction all run locally inside the application process.</p>
 <p><img src="screenshots/05-isolated-accounts.png" alt="A second account can neither see nor query another user documents"></p>
 <h3>One click erases the account and every stored document</h3>
 <p><img src="screenshots/06-account-erased.png" alt="One click erases the account and every stored document"></p>
+<h3>Asking a question is a page of its own and the primary action on mobile</h3>
+<p><img src="screenshots/07-mobile-ask.png" alt="Asking a question is a page of its own and the primary action on mobile"></p>
+<h3>Every page does one thing, with a thumb-friendly tab bar on small screens</h3>
+<p><img src="screenshots/08-mobile-documents.png" alt="Every page does one thing, with a thumb-friendly tab bar on small screens"></p>
 <!-- screenshots:end --><h2>Features</h2>
 <ul>
 <li><strong>Private document vault</strong> — upload or paste UTF-8 text documents, tagged as
 <code>health</code>, <code>finance</code>, <code>professional</code>, <code>education</code> or <code>other</code>.</li>
 <li><strong>Grounded question answering</strong> — TF-IDF retrieval over your own chunks plus
 extractive answering, with citations back to the document and section.</li>
+<li><strong>One job per page</strong> — asking a question, adding a document, browsing the vault
+and managing the account each get their own page, reached from a tab bar.</li>
+<li><strong>Mobile first</strong> — a thumb-friendly bottom tab bar, full-width controls, large
+tap targets and safe-area padding on phones; the same tabs move to the top on
+larger screens.</li>
 <li><strong>Explicit refusals</strong> — if nothing relevant is found, the model answers
 “I can only answer from your own documents…”, never inventing facts.</li>
 <li><strong>Strict isolation</strong> — every query and document lookup is scoped by the owner&#39;s
@@ -118,7 +127,8 @@ case only served to an authenticated session over <code>Cache-Control: no-store<
 production; the server refuses to start in production without it.</li>
 </ul>
 <h2>Architecture</h2>
-<pre><code>web/                 Static portal (no framework, CSP-friendly, no third-party requests)
+<pre><code>web/                 Static portal: one page per task (#/ask, #/add, #/documents,
+                     #/account), mobile first, CSP-friendly, no third-party requests
 server/src/app.ts    Express application: auth, documents, question answering
 server/src/lib/
   config.ts          Environment configuration and master key loading

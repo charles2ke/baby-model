@@ -107,12 +107,6 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
     res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=(), interest-cohort=()');
     next();
   });
-  app.use(express.json({ limit: config.maxUploadBytes }));
-
-  const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: config.maxUploadBytes, files: 1 },
-  });
 
   const globalLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -122,6 +116,13 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
     message: { error: 'Too many requests, please slow down.' },
   });
   app.use(globalLimiter);
+
+  app.use(express.json({ limit: config.maxUploadBytes }));
+
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: config.maxUploadBytes, files: 1 },
+  });
 
   const askLimiter = rateLimit({
     windowMs: 60 * 1000,

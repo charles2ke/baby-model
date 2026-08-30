@@ -1,5 +1,9 @@
 const state = { csrfToken: '', email: '' };
 
+const ROUTES = ['ask', 'add', 'documents', 'account'];
+const DEFAULT_ROUTE = 'ask';
+const SIGNIN_ROUTE = 'signin';
+
 const $ = (id) => document.getElementById(id);
 
 function setStatus(message, isError = false) {
@@ -37,23 +41,64 @@ async function guard(action) {
   }
 }
 
-function showSignedIn(session) {
+/** Reads the route from the location hash, e.g. `#/documents` -> `documents`. */
+function routeFromHash() {
+  const name = window.location.hash.replace(/^#\/?/, '');
+  return ROUTES.includes(name) ? name : DEFAULT_ROUTE;
+}
+
+/** Shows exactly one page, because every view of the portal does a single thing. */
+function render() {
+  const signedIn = state.csrfToken !== '';
+  const route = signedIn ? routeFromHash() : SIGNIN_ROUTE;
+  for (const name of [SIGNIN_ROUTE, ...ROUTES]) {
+    const page = $(`${name}-page`);
+    const active = name === route;
+    page.hidden = !active;
+    if (active) {
+      page.querySelector('h1')?.focus({ preventScroll: true });
+    }
+  }
+  $('tabbar').hidden = !signedIn;
+  for (const name of ROUTES) {
+    const tab = $(`tab-${name}`);
+    tab.classList.toggle('active', name === route);
+    if (name === route) {
+      tab.setAttribute('aria-current', 'page');
+    } else {
+      tab.removeAttribute('aria-current');
+    }
+  }
+  window.scrollTo(0, 0);
+}
+
+/** Navigates to a page; the hash change triggers the render. */
+function navigate(route) {
+  const target = `#/${route}`;
+  if (window.location.hash === target) {
+    render();
+    return;
+  }
+  window.location.hash = target;
+}
+
+function showSignedIn(session, route = routeFromHash()) {
   state.csrfToken = session.csrfToken;
   state.email = session.email;
   $('session-email').textContent = session.email;
-  $('session-bar').hidden = false;
-  $('auth-view').hidden = true;
-  $('app-view').hidden = false;
+  navigate(route);
 }
 
 function showSignedOut() {
   state.csrfToken = '';
   state.email = '';
-  $('session-bar').hidden = true;
-  $('auth-view').hidden = false;
-  $('app-view').hidden = true;
-  $('answer').hidden = true;
+  $('session-email').textContent = '';
+  const answer = $('answer');
+  answer.replaceChildren();
+  answer.hidden = true;
+  $('question').value = '';
   $('document-list').replaceChildren();
+  render();
 }
 
 async function refreshDocuments() {
@@ -62,20 +107,28 @@ async function refreshDocuments() {
   list.replaceChildren();
   if (documents.length === 0) {
     const empty = document.createElement('li');
-    empty.textContent = 'No documents yet. Add one above to teach your private model.';
+    empty.className = 'empty';
+    empty.textContent = 'No documents yet. Add one to teach your private model.';
     list.append(empty);
     return;
   }
   for (const doc of documents) {
     const item = document.createElement('li');
     const label = document.createElement('span');
+    label.className = 'document-label';
     const badge = document.createElement('span');
     badge.className = 'badge';
     badge.textContent = doc.category;
-    label.append(badge, document.createTextNode(` ${doc.title} · ${doc.byteSize} bytes`));
+    const title = document.createElement('span');
+    title.className = 'document-title';
+    title.textContent = doc.title;
+    const meta = document.createElement('span');
+    meta.className = 'document-meta';
+    meta.textContent = `${doc.byteSize} bytes`;
+    label.append(badge, title, meta);
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.className = 'link danger';
+    remove.className = 'danger small';
     remove.textContent = 'Delete';
     remove.addEventListener('click', () =>
       guard(async () => {
@@ -92,7 +145,7 @@ async function refreshDocuments() {
 function renderAnswer(result) {
   const container = $('answer');
   container.replaceChildren();
-  const heading = document.createElement('h3');
+  const heading = document.createElement('h2');
   heading.textContent = result.grounded ? 'Answer from your documents' : 'No grounded answer';
   const paragraph = document.createElement('p');
   paragraph.textContent = result.answer;
@@ -114,13 +167,15 @@ async function handleAuth(action) {
   const email = $('email').value;
   const password = $('password').value;
   const session = await api(`/api/auth/${action}`, { method: 'POST', body: { email, password } });
-  showSignedIn(session);
+  showSignedIn(session, DEFAULT_ROUTE);
   $('password').value = '';
   setStatus(action === 'register' ? 'Vault created.' : 'Signed in.');
   await refreshDocuments();
 }
 
 function wire() {
+  window.addEventListener('hashchange', render);
+
   $('auth-form').addEventListener('submit', (event) => {
     event.preventDefault();
     guard(() => handleAuth('login'));
@@ -149,8 +204,9 @@ function wire() {
       }
       await api('/api/documents', { method: 'POST', form });
       $('upload-form').reset();
-      setStatus('Document stored and encrypted.');
       await refreshDocuments();
+      navigate('documents');
+      setStatus('Document stored and encrypted.');
     });
   });
 

@@ -2,14 +2,21 @@
   color-scheme: light dark;
   --bg: #0f172a;
   --card: #111c33;
+  --field: #0b1425;
+  --line: #1e293b;
   --accent: #38bdf8;
   --text: #e2e8f0;
   --muted: #94a3b8;
   --danger: #f87171;
+  --tabbar-height: 4.25rem;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -18,60 +25,84 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  overflow-wrap: break-word;
+  /* Reserves room for the fixed tab bar so nothing hides behind it. */
+  padding-bottom: var(--tabbar-height);
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
 }
 
 .topbar {
-  padding: 1.5rem 2rem 1rem;
-  border-bottom: 1px solid #1e293b;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
 }
 
-.topbar h1 {
+.brand {
   margin: 0;
-  font-size: 1.6rem;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--accent);
 }
 
 .tagline {
-  margin: 0.25rem 0 0;
+  margin: 0.15rem 0 0;
   color: var(--muted);
-}
-
-.session-bar {
-  margin-top: 0.75rem;
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  flex-wrap: wrap;
-  color: var(--muted);
-}
-
-main,
-#app-view {
-  display: grid;
-  gap: 1.25rem;
+  font-size: 0.9rem;
 }
 
 main {
-  max-width: 60rem;
+  max-width: 44rem;
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1rem 1rem 2rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.3;
+}
+
+h1:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.page-intro {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .card {
   background: var(--card);
-  border: 1px solid #1e293b;
-  border-radius: 0.75rem;
-  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  padding: 1.1rem;
 }
 
-.card h2 {
-  margin-top: 0;
-  font-size: 1.15rem;
+/* Asking a question is the primary job of the portal, so it gets its own
+   full-width, accented page instead of sitting in a card beside other tools. */
+.ask {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.14), rgba(56, 189, 248, 0));
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 0.9rem;
+  padding: 1.25rem 1.1rem 1.4rem;
+}
+
+.ask h1 {
+  font-size: 1.6rem;
+  color: var(--accent);
+}
+
+.ask-form input {
+  font-size: 1.05rem;
+  padding: 0.85rem 0.9rem;
+  border-color: rgba(56, 189, 248, 0.55);
 }
 
 label {
   display: block;
-  margin-top: 0.75rem;
+  margin-top: 0.9rem;
   font-size: 0.9rem;
   color: var(--muted);
 }
@@ -80,30 +111,64 @@ input,
 select,
 textarea {
   width: 100%;
-  margin-top: 0.25rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.5rem;
+  margin-top: 0.3rem;
+  padding: 0.7rem 0.75rem;
+  min-height: 2.75rem;
+  border-radius: 0.6rem;
   border: 1px solid #334155;
-  background: #0b1425;
+  background: var(--field);
   color: var(--text);
   font: inherit;
+  /* 1rem keeps iOS Safari from zooming in when a field is focused. */
+  font-size: 1rem;
+}
+
+input[type='file'] {
+  padding: 0.55rem 0.6rem;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .actions {
-  margin-top: 1rem;
+  margin-top: 1.1rem;
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.actions.stack {
+  flex-direction: column;
 }
 
 button {
   font: inherit;
   cursor: pointer;
-  border-radius: 0.5rem;
+  border-radius: 0.6rem;
   border: none;
-  padding: 0.55rem 1.1rem;
+  padding: 0.7rem 1.2rem;
+  min-height: 2.75rem;
   background: var(--accent);
   color: #06263a;
   font-weight: 600;
+  touch-action: manipulation;
+}
+
+.actions button {
+  flex: 1 1 auto;
+}
+
+button.primary-cta {
+  width: 100%;
+  font-size: 1.05rem;
+  padding: 0.85rem 1.2rem;
+  min-height: 3rem;
 }
 
 button.secondary {
@@ -112,15 +177,17 @@ button.secondary {
   color: var(--accent);
 }
 
-button.link {
-  background: none;
-  color: var(--accent);
-  padding: 0;
-  font-weight: 500;
+button.danger {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
 }
 
-button.danger {
-  color: var(--danger);
+button.small {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.9rem;
+  min-height: 2.25rem;
+  font-size: 0.9rem;
 }
 
 .hint,
@@ -130,22 +197,31 @@ footer p {
   font-size: 0.9rem;
 }
 
+.hint {
+  margin-bottom: 0;
+}
+
 .status {
   min-height: 1.25rem;
+  margin: 1rem 0 0;
   text-align: center;
 }
 
 .answer {
-  margin-top: 1rem;
+  margin-top: 1.25rem;
   padding: 1rem;
   border-left: 3px solid var(--accent);
-  background: #0b1425;
-  border-radius: 0.5rem;
+  background: var(--field);
+  border-radius: 0.6rem;
 }
 
-.answer h3 {
+.answer h2 {
   margin: 0 0 0.5rem;
   font-size: 1rem;
+}
+
+.answer p {
+  margin: 0;
 }
 
 .citations {
@@ -157,7 +233,7 @@ footer p {
 
 .documents {
   list-style: none;
-  margin: 0;
+  margin: 1rem 0 0;
   padding: 0;
   display: grid;
   gap: 0.6rem;
@@ -165,23 +241,163 @@ footer p {
 
 .documents li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 0.8rem;
-  background: #0b1425;
-  border-radius: 0.5rem;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--field);
+  border-radius: 0.6rem;
+}
+
+.documents li.empty {
+  color: var(--muted);
+}
+
+.document-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.document-title {
+  font-weight: 600;
+}
+
+.document-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .badge {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--accent);
 }
 
-footer {
-  border-top: 1px solid #1e293b;
-  padding: 1rem 2rem 2rem;
+/* Bottom tab bar on phones; a top-aligned row on wider screens. */
+.tabbar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 10;
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  padding-bottom: calc(0.4rem + env(safe-area-inset-bottom));
+  background: rgba(15, 23, 42, 0.97);
+  border-top: 1px solid var(--line);
+}
+
+.tab {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.4rem 0.35rem;
+  border-radius: 0.6rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
   text-align: center;
+  touch-action: manipulation;
+}
+
+.tab.active {
+  color: var(--accent);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+/* The Ask tab is the standout call to action, split off from the rest. */
+.tab-primary {
+  flex: 1.25 1 0;
+  background: var(--accent);
+  color: #06263a;
+}
+
+.tab-primary.active {
+  background: var(--accent);
+  color: #06263a;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+}
+
+.tab-divider {
+  width: 1px;
+  margin: 0.5rem 0.25rem;
+  background: var(--line);
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 1rem;
+  text-align: center;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    /* Keeps a unit: calc() cannot add a unitless 0 to env(safe-area-inset-bottom). */
+    --tabbar-height: 0rem;
+  }
+
+  .topbar {
+    padding: 1.25rem 2rem 1rem;
+  }
+
+  .brand {
+    font-size: 1.6rem;
+  }
+
+  .tabbar {
+    position: static;
+    max-width: 44rem;
+    margin: 1rem auto 0;
+    padding: 0 1rem;
+    background: none;
+    border-top: none;
+    gap: 0.5rem;
+  }
+
+  .tab,
+  .tab-primary {
+    flex: 0 0 auto;
+    min-width: 7rem;
+  }
+
+  .tab-divider {
+    margin: 0.5rem;
+  }
+
+  main {
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  .card,
+  .ask {
+    padding: 1.5rem;
+  }
+
+  .actions.stack {
+    flex-direction: row;
+  }
+
+  button.primary-cta {
+    width: auto;
+    min-width: 12rem;
+  }
+
+  footer {
+    padding: 1rem 2rem 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tab,
+  button {
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
 }
