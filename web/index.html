@@ -21,15 +21,21 @@
         <p class="tagline">A model that only knows <em>your</em> documents.</p>
       </div>
       <div id="theme-switch" class="theme-switch" role="group" aria-label="Colour theme">
-        <button id="theme-system" class="theme-option" type="button" title="Match system theme">
+        <button
+          id="theme-system"
+          class="theme-option"
+          type="button"
+          title="Match system theme"
+          aria-pressed="true"
+        >
           <span aria-hidden="true">◐</span>
           <span class="visually-hidden">System theme</span>
         </button>
-        <button id="theme-light" class="theme-option" type="button" title="Light theme">
+        <button id="theme-light" class="theme-option" type="button" title="Light theme" aria-pressed="false">
           <span aria-hidden="true">☀</span>
           <span class="visually-hidden">Light theme</span>
         </button>
-        <button id="theme-dark" class="theme-option" type="button" title="Dark theme">
+        <button id="theme-dark" class="theme-option" type="button" title="Dark theme" aria-pressed="false">
           <span aria-hidden="true">☾</span>
           <span class="visually-hidden">Dark theme</span>
         </button>

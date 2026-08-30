@@ -222,9 +222,13 @@ function wire() {
     $(`theme-${name}`).addEventListener('click', () => setTheme(name));
   }
   // Keeps `system` in step with the OS switching between light and dark.
-  window
-    .matchMedia('(prefers-color-scheme: light)')
-    .addEventListener('change', () => applyTheme(storedTheme()));
+  const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
+  const syncSystemTheme = () => applyTheme(storedTheme());
+  if (typeof systemTheme.addEventListener === 'function') {
+    systemTheme.addEventListener('change', syncSystemTheme);
+  } else {
+    systemTheme.addListener(syncSystemTheme);
+  }
 
   $('auth-form').addEventListener('submit', (event) => {
     event.preventDefault();
