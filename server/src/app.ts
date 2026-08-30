@@ -60,7 +60,9 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
 
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);
+  if (process.env.TRUST_PROXY === '1') {
+    app.set('trust proxy', 1);
+  }
   app.locals.store = store;
   app.locals.db = db;
 
