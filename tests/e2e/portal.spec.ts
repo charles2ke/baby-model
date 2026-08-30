@@ -177,8 +177,12 @@ test('the theme can be pinned to light or dark and survives a reload', async ({ 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.screenshot({ path: `${SHOTS}/10-dark-theme.png`, fullPage: true, animations: 'disabled' });
 
+  // `System theme` follows the device, so it flips with the emulated setting.
+  await page.emulateMedia({ colorScheme: 'light' });
   await page.getByRole('button', { name: 'System theme' }).click();
-  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.*/);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.getByRole('button', { name: 'System theme' })).toHaveAttribute(
     'aria-pressed',
     'true',

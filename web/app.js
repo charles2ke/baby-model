@@ -21,22 +21,18 @@ function storedTheme() {
 }
 
 /**
- * Applies a theme preference: `system` leaves the choice to the media query,
- * while `light` and `dark` pin it through `data-theme` on the root element.
+ * Applies a theme preference. `system` follows the device setting; the
+ * resolved palette is always written to `data-theme` on the root element so
+ * the stylesheet only ever describes the light palette once.
  */
 function applyTheme(theme) {
-  const root = document.documentElement;
-  if (theme === 'system') {
-    root.removeAttribute('data-theme');
-  } else {
-    root.setAttribute('data-theme', theme);
-  }
   const resolved =
     theme === 'system'
       ? window.matchMedia('(prefers-color-scheme: light)').matches
         ? 'light'
         : 'dark'
       : theme;
+  document.documentElement.setAttribute('data-theme', resolved);
   $('theme-color').setAttribute('content', THEME_COLORS[resolved]);
   for (const name of THEMES) {
     $(`theme-${name}`).setAttribute('aria-pressed', String(name === theme));

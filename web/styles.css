@@ -1,7 +1,8 @@
 /*
- * Design tokens. Dark is the default palette; the light palette is applied
- * either by the system preference or by an explicit choice from the theme
- * switch, which sets `data-theme` on the root element.
+ * Design tokens. Dark is the default palette and the light palette is applied
+ * whenever `data-theme="light"` is set on the root element, which the theme
+ * script does for both an explicit choice and a system preference. Keeping the
+ * light values in one place avoids duplicating them in a media query.
  */
 :root {
   color-scheme: dark;
@@ -27,8 +28,7 @@
   --tabbar-height: 4.5rem;
 }
 
-:root[data-theme='light'],
-.light-palette {
+:root[data-theme='light'] {
   color-scheme: light;
   --bg: #f4f7fc;
   --bg-glow-1: rgba(56, 189, 248, 0.22);
@@ -47,29 +47,6 @@
   --danger: #dc2626;
   --shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.45);
   --tabbar-bg: rgba(255, 255, 255, 0.9);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    color-scheme: light;
-    --bg: #f4f7fc;
-    --bg-glow-1: rgba(56, 189, 248, 0.22);
-    --bg-glow-2: rgba(129, 140, 248, 0.18);
-    --surface: rgba(255, 255, 255, 0.86);
-    --surface-solid: #ffffff;
-    --field: rgba(255, 255, 255, 0.9);
-    --line: rgba(15, 23, 42, 0.12);
-    --line-strong: rgba(15, 23, 42, 0.22);
-    --accent: #0284c7;
-    --accent-strong: #0369a1;
-    --accent-contrast: #f8fbff;
-    --accent-soft: rgba(2, 132, 199, 0.12);
-    --text: #0f172a;
-    --muted: #52627a;
-    --danger: #dc2626;
-    --shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.45);
-    --tabbar-bg: rgba(255, 255, 255, 0.9);
-  }
 }
 
 * {

@@ -1,13 +1,16 @@
 /**
- * Applies a pinned theme before the first paint so a light-mode user never
- * sees a flash of the dark palette. Loaded synchronously in the document head
- * because the Content-Security-Policy forbids inline scripts.
+ * Resolves the theme before the first paint so no one sees a flash of the
+ * wrong palette. Loaded synchronously in the document head because the
+ * Content-Security-Policy forbids inline scripts; `app.js` takes over once it
+ * loads and keeps the resolved palette in step with changes.
  */
+var stored = null;
 try {
-  var theme = window.localStorage.getItem('baby-model-theme');
-  if (theme === 'light' || theme === 'dark') {
-    document.documentElement.setAttribute('data-theme', theme);
-  }
+  stored = window.localStorage.getItem('baby-model-theme');
 } catch {
-  // Storage can be blocked; the system preference is then used.
+  // Storage can be blocked; the device preference is then used.
 }
+if (stored !== 'light' && stored !== 'dark') {
+  stored = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+document.documentElement.setAttribute('data-theme', stored);
