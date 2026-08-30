@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>baby-model &middot; a model that only knows your data</title>
+    <link rel="stylesheet" href="site.css" />
+  </head>
+  <body>
+    <main class="prose">
+<h1>baby-model</h1>
+<p>A model that only knows <strong>your</strong> data.</p>
+<p><code>baby-model</code> is a self-hosted portal that learns from the documents you give it —
+health records, finance statements, professional paperwork, education certificates
+and anything else — and answers questions <strong>only</strong> from those documents. Every
+answer is extracted verbatim from your own files and cited; when your documents
+do not contain the answer, the model says so instead of guessing.</p>
+<p>Nothing is sent to any third-party model provider: retrieval, ranking and answer
+extraction all run locally inside the application process.</p>
+<h2>Screenshots</h2>
+<!-- screenshots:start -->
+<h3>Sign in or create a private, encrypted vault</h3>
+<p><img src="screenshots/01-sign-in.png" alt="Sign in or create a private, encrypted vault"></p>
+<h3>Health, finance, professional and education documents stored encrypted</h3>
+<p><img src="screenshots/02-documents.png" alt="Health, finance, professional and education documents stored encrypted"></p>
+<h3>Answers are extracted from your documents and always cited</h3>
+<p><img src="screenshots/03-grounded-answer.png" alt="Answers are extracted from your documents and always cited"></p>
+<h3>Questions your documents cannot answer are refused instead of guessed</h3>
+<p><img src="screenshots/04-refuses-outside-knowledge.png" alt="Questions your documents cannot answer are refused instead of guessed"></p>
+<h3>A second account can neither see nor query another user documents</h3>
+<p><img src="screenshots/05-isolated-accounts.png" alt="A second account can neither see nor query another user documents"></p>
+<h3>One click erases the account and every stored document</h3>
+<p><img src="screenshots/06-account-erased.png" alt="One click erases the account and every stored document"></p>
+<!-- screenshots:end --><h2>Features</h2>
+<ul>
+<li><strong>Private document vault</strong> — upload or paste UTF-8 text documents, tagged as
+<code>health</code>, <code>finance</code>, <code>professional</code>, <code>education</code> or <code>other</code>.</li>
+<li><strong>Grounded question answering</strong> — TF-IDF retrieval over your own chunks plus
+extractive answering, with citations back to the document and section.</li>
+<li><strong>Explicit refusals</strong> — if nothing relevant is found, the model answers
+“I can only answer from your own documents…”, never inventing facts.</li>
+<li><strong>Strict isolation</strong> — every query and document lookup is scoped by the owner&#39;s
+user id, so one account can never read another account&#39;s data.</li>
+<li><strong>Data rights built in</strong> — one-click export (portability) and irreversible
+account erasure (right to be forgotten).</li>
+</ul>
+<h2>Security and privacy design</h2>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Control</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Password storage</td>
+<td><code>scrypt</code> (N=16384, r=8, p=1) with a per-password random salt</td>
+</tr>
+<tr>
+<td>Session handling</td>
+<td>256-bit random tokens, only their SHA-256 hash is stored, <code>HttpOnly</code> + <code>SameSite=Strict</code> (+ <code>Secure</code> in production) cookies, server-side expiry and revocation</td>
+</tr>
+<tr>
+<td>CSRF</td>
+<td>Per-session CSRF token required on every state-changing request</td>
+</tr>
+<tr>
+<td>Encryption at rest</td>
+<td>Documents and chunks are encrypted with AES-256-GCM using a per-user data key, which is itself wrapped with the server <code>MASTER_KEY</code></td>
+</tr>
+<tr>
+<td>Database</td>
+<td>SQLite file created with <code>0600</code> permissions inside a <code>0700</code> data directory</td>
+</tr>
+<tr>
+<td>Authorisation</td>
+<td>Every document, chunk and export query filters on <code>user_id</code>; cross-account access returns <code>404</code></td>
+</tr>
+<tr>
+<td>Transport &amp; headers</td>
+<td><code>helmet</code> with a strict CSP (<code>default-src &#39;self&#39;</code>, no framing, no object sources), <code>Referrer-Policy: no-referrer</code>, <code>Cache-Control: no-store</code></td>
+</tr>
+<tr>
+<td>Abuse protection</td>
+<td>Rate-limited authentication endpoints, upload size limits, UTF-8 text-only uploads</td>
+</tr>
+<tr>
+<td>Auditability</td>
+<td>Append-only <code>audit_log</code> of registrations, logins, document changes, questions, exports and erasures (no document content is logged)</td>
+</tr>
+<tr>
+<td>No third parties</td>
+<td>No analytics, no external fonts or CDNs, no outbound model API calls</td>
+</tr>
+</tbody></table>
+<h3>Data-protection compliance notes</h3>
+<ul>
+<li><strong>Data minimisation</strong> — the only personal identifier stored is the email address
+used to sign in; documents are opaque ciphertext at rest.</li>
+<li><strong>Purpose limitation</strong> — stored content is used solely to answer that user&#39;s own
+questions.</li>
+<li><strong>Right of access &amp; portability</strong> — <code>GET /api/account/export</code> returns the full
+account content as JSON.</li>
+<li><strong>Right to erasure</strong> — <code>DELETE /api/account</code> removes the user, documents, chunks
+and sessions, and anonymises the audit trail.</li>
+<li><strong>Key management</strong> — set <code>MASTER_KEY</code> (32 bytes, hex) from your secret manager in
+production; the server refuses to start in production without it.</li>
+</ul>
+<h2>Architecture</h2>
+<pre><code>web/                 Static portal (no framework, CSP-friendly, no third-party requests)
+server/src/app.ts    Express application: auth, documents, question answering
+server/src/lib/
+  config.ts          Environment configuration and master key loading
+  crypto.ts          scrypt password hashing, AES-256-GCM sealing, key wrapping
+  db.ts              SQLite schema and hardened file permissions
+  store.ts           Owner-scoped data access for users, sessions and documents
+  text.ts            Tokenisation, sentence splitting and chunking
+  model.ts           TF-IDF retrieval and extractive, cited answering
+tests/unit/          Vitest unit and API tests (100% coverage enforced)
+tests/e2e/           Playwright end-to-end tests that also produce the screenshots
+</code></pre>
+<h3>API</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>POST</code></td>
+<td><code>/api/auth/register</code></td>
+<td>Create an account and start a session</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/auth/login</code></td>
+<td>Sign in</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/auth/logout</code></td>
+<td>Revoke the current session</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/auth/me</code></td>
+<td>Current account and CSRF token</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/documents</code></td>
+<td>List your documents</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/documents</code></td>
+<td>Add a document (JSON body or file upload)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/documents/:id</code></td>
+<td>Read one of your documents</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/documents/:id</code></td>
+<td>Delete one of your documents</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/ask</code></td>
+<td>Ask a question answered only from your documents</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/account/export</code></td>
+<td>Export everything stored about you</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/account</code></td>
+<td>Erase your account and all data</td>
+</tr>
+</tbody></table>
+<h2>Getting started</h2>
+<pre><code class="language-bash">npm install
+npm run dev           # http://localhost:3000
+</code></pre>
+<p>Production:</p>
+<pre><code class="language-bash">export MASTER_KEY=$(openssl rand -hex 32)   # store this in your secret manager
+export NODE_ENV=production
+npm run build &amp;&amp; npm start
+</code></pre>
+<h3>Configuration</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>MASTER_KEY</code></td>
+<td>generated in development</td>
+<td>32-byte hex key wrapping per-user data keys (required in production)</td>
+</tr>
+<tr>
+<td><code>DATA_DIR</code></td>
+<td><code>./data</code></td>
+<td>Directory for the database and development key</td>
+</tr>
+<tr>
+<td><code>DATABASE_FILE</code></td>
+<td><code>$DATA_DIR/baby-model.db</code></td>
+<td>SQLite database location</td>
+</tr>
+<tr>
+<td><code>PORT</code></td>
+<td><code>3000</code></td>
+<td>HTTP port</td>
+</tr>
+<tr>
+<td><code>MAX_UPLOAD_BYTES</code></td>
+<td><code>2097152</code></td>
+<td>Maximum document size</td>
+</tr>
+<tr>
+<td><code>SESSION_TTL_MS</code></td>
+<td><code>43200000</code></td>
+<td>Session lifetime</td>
+</tr>
+<tr>
+<td><code>AUTH_RATE_LIMIT</code></td>
+<td><code>20</code></td>
+<td>Authentication attempts per 15 minutes</td>
+</tr>
+</tbody></table>
+<h2>Testing</h2>
+<pre><code class="language-bash">npm run test:coverage   # unit + API tests, 100% coverage thresholds
+npm run test:e2e        # Playwright end-to-end tests and screenshots
+</code></pre>
+<h3>Coverage</h3>
+<!-- coverage:start -->
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Coverage</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>statements</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>branches</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>functions</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>lines</td>
+<td>100%</td>
+</tr>
+</tbody></table>
+<!-- coverage:end --><h2>Documentation site</h2>
+<p><code>npm run docs:build</code> refreshes the screenshot gallery and coverage table in this
+README and regenerates <code>docs/index.html</code>, which CI publishes to GitHub Pages.</p>
+<h2>License</h2>
+<p><a href="LICENSE">MIT</a></p>
+
+    </main>
+  </body>
+</html>
