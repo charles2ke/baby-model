@@ -64,6 +64,21 @@ describe('api', () => {
     }
   });
 
+  it('enables proxy trust only when explicitly configured', () => {
+    const previous = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = '1';
+    try {
+      const trustedApp = createApp({ config: testConfig(), db: openDatabase(':memory:') });
+      expect(trustedApp.get('trust proxy')).toBe(1);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.TRUST_PROXY;
+      } else {
+        process.env.TRUST_PROXY = previous;
+      }
+    }
+  });
+
   it('parses cookies defensively', () => {
     expect(parseCookies(undefined)).toEqual({});
     expect(parseCookies('a=1; b=two%20words; broken')).toEqual({ a: '1', b: 'two words' });
