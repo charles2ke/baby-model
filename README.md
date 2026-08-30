@@ -45,6 +45,14 @@ extraction all run locally inside the application process.
 ### Every page does one thing, with a thumb-friendly tab bar on small screens
 
 ![Every page does one thing, with a thumb-friendly tab bar on small screens](docs/screenshots/08-mobile-documents.png)
+
+### A light theme for bright rooms, remembered across visits
+
+![A light theme for bright rooms, remembered across visits](docs/screenshots/09-light-theme.png)
+
+### A dark theme, or simply follow the theme of the device
+
+![A dark theme, or simply follow the theme of the device](docs/screenshots/10-dark-theme.png)
 <!-- screenshots:end -->
 
 ## Features

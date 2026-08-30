@@ -4,12 +4,58 @@ const ROUTES = ['ask', 'add', 'documents', 'account'];
 const DEFAULT_ROUTE = 'ask';
 const SIGNIN_ROUTE = 'signin';
 
+const THEMES = ['system', 'light', 'dark'];
+const THEME_KEY = 'baby-model-theme';
+const THEME_COLORS = { light: '#f4f7fc', dark: '#080d1a' };
+
 const $ = (id) => document.getElementById(id);
+
+/** Reads the stored preference; falls back to following the system theme. */
+function storedTheme() {
+  try {
+    const value = window.localStorage.getItem(THEME_KEY);
+    return THEMES.includes(value) ? value : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+/**
+ * Applies a theme preference: `system` leaves the choice to the media query,
+ * while `light` and `dark` pin it through `data-theme` on the root element.
+ */
+function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme === 'system') {
+    root.removeAttribute('data-theme');
+  } else {
+    root.setAttribute('data-theme', theme);
+  }
+  const resolved =
+    theme === 'system'
+      ? window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark'
+      : theme;
+  $('theme-color').setAttribute('content', THEME_COLORS[resolved]);
+  for (const name of THEMES) {
+    $(`theme-${name}`).setAttribute('aria-pressed', String(name === theme));
+  }
+}
+
+function setTheme(theme) {
+  applyTheme(theme);
+  try {
+    window.localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // A blocked storage API only costs persistence, not the theme itself.
+  }
+}
 
 function setStatus(message, isError = false) {
   const status = $('status');
   status.textContent = message;
-  status.style.color = isError ? 'var(--danger)' : 'var(--muted)';
+  status.classList.toggle('error', isError);
 }
 
 async function api(path, { method = 'GET', body, form } = {}) {
@@ -176,6 +222,14 @@ async function handleAuth(action) {
 function wire() {
   window.addEventListener('hashchange', render);
 
+  for (const name of THEMES) {
+    $(`theme-${name}`).addEventListener('click', () => setTheme(name));
+  }
+  // Keeps `system` in step with the OS switching between light and dark.
+  window
+    .matchMedia('(prefers-color-scheme: light)')
+    .addEventListener('change', () => applyTheme(storedTheme()));
+
   $('auth-form').addEventListener('submit', (event) => {
     event.preventDefault();
     guard(() => handleAuth('login'));
@@ -248,6 +302,7 @@ function wire() {
 }
 
 async function boot() {
+  applyTheme(storedTheme());
   wire();
   try {
     const session = await api('/api/auth/me');
