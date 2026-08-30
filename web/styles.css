@@ -27,6 +27,7 @@ body {
   line-height: 1.5;
   overflow-wrap: break-word;
   /* Reserves room for the fixed tab bar so nothing hides behind it. */
+  padding-bottom: var(--tabbar-height);
   padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
 }
 
@@ -285,7 +286,8 @@ footer p {
   display: flex;
   align-items: stretch;
   gap: 0.25rem;
-  padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom));
+  padding: 0.4rem 0.5rem;
+  padding-bottom: calc(0.4rem + env(safe-area-inset-bottom));
   background: rgba(15, 23, 42, 0.97);
   border-top: 1px solid var(--line);
 }
