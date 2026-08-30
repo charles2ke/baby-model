@@ -189,9 +189,10 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
       return;
     }
     if (store.getUserByEmail(parsed.data.email)) {
-      // Spend the same work as a real sign-up and stay vague, so that the
-      // endpoint cannot be used to enumerate who has a vault on this host.
-      store.authenticate(parsed.data.email, parsed.data.password);
+      // Equalise the work with a real sign-up and stay vague, so that probing
+      // this endpoint yields as little as possible about who has a vault here.
+      // The result is deliberately discarded: only the scrypt cost matters.
+      void store.authenticate(parsed.data.email, parsed.data.password);
       store.audit(null, 'auth.register_conflict');
       res.status(409).json({ error: 'That account could not be created' });
       return;
