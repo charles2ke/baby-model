@@ -52,6 +52,17 @@ describe('config', () => {
     expect(path.isAbsolute(config.databaseFile)).toBe(true);
   });
 
+  it('falls back to defaults for invalid numeric limits', () => {
+    const config = loadConfig({
+      DATA_DIR: tempDir(),
+      MASTER_KEY: 'c'.repeat(MASTER_KEY_BYTES * 2),
+      MAX_UPLOAD_BYTES: '',
+      SESSION_TTL_MS: 'not-a-number',
+    });
+    expect(config.maxUploadBytes).toBe(2 * 1024 * 1024);
+    expect(config.sessionTtlMs).toBe(12 * 60 * 60 * 1000);
+  });
+
   it('falls back to a data directory inside the working directory', () => {
     const cwd = process.cwd();
     const dir = tempDir();

@@ -18,6 +18,13 @@ export interface AppConfig {
 }
 
 export const MASTER_KEY_BYTES = 32;
+const DEFAULT_MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+const DEFAULT_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+
+function positiveNumberOrDefault(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 function readMasterKey(env: NodeJS.ProcessEnv, dataDir: string, isProduction: boolean): Buffer {
   const fromEnv = env.MASTER_KEY;
@@ -51,7 +58,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       : path.join(dataDir, 'baby-model.db'),
     masterKey: readMasterKey(env, dataDir, isProduction),
     secureCookies: isProduction,
-    maxUploadBytes: Number(env.MAX_UPLOAD_BYTES ?? 2 * 1024 * 1024),
-    sessionTtlMs: Number(env.SESSION_TTL_MS ?? 12 * 60 * 60 * 1000),
+    maxUploadBytes: positiveNumberOrDefault(env.MAX_UPLOAD_BYTES, DEFAULT_MAX_UPLOAD_BYTES),
+    sessionTtlMs: positiveNumberOrDefault(env.SESSION_TTL_MS, DEFAULT_SESSION_TTL_MS),
   };
 }

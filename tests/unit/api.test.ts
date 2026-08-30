@@ -67,6 +67,7 @@ describe('api', () => {
   it('parses cookies defensively', () => {
     expect(parseCookies(undefined)).toEqual({});
     expect(parseCookies('a=1; b=two%20words; broken')).toEqual({ a: '1', b: 'two words' });
+    expect(parseCookies('bad=%E0%A4%A')).toEqual({ bad: '%E0%A4%A' });
   });
 
   it('serves the web portal and a health probe', async () => {
@@ -107,6 +108,21 @@ describe('api', () => {
       .send({ email: 'user@example.com', password: PASSWORD })
       .expect(201);
     expect((response.headers['set-cookie'] as unknown as string[])[0]).toContain('Secure');
+  });
+
+  it('enables trust proxy only when explicitly configured', () => {
+    const previous = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = '1';
+    try {
+      const proxiedApp = createApp({ config: testConfig(), db: openDatabase(':memory:') });
+      expect(proxiedApp.get('trust proxy')).toBe(1);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.TRUST_PROXY;
+      } else {
+        process.env.TRUST_PROXY = previous;
+      }
+    }
   });
 
   it('validates registration input and rejects duplicates', async () => {

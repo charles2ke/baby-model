@@ -174,7 +174,7 @@ function wire() {
       link.href = URL.createObjectURL(blob);
       link.download = 'baby-model-export.json';
       link.click();
-      URL.revokeObjectURL(link.href);
+      setTimeout(() => URL.revokeObjectURL(link.href), 0);
       setStatus('Export downloaded.');
     }),
   );

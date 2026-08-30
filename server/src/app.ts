@@ -42,7 +42,13 @@ export function parseCookies(header: string | undefined): Record<string, string>
   for (const part of (header ?? '').split(';')) {
     const index = part.indexOf('=');
     if (index > 0) {
-      cookies[part.slice(0, index).trim()] = decodeURIComponent(part.slice(index + 1).trim());
+      const key = part.slice(0, index).trim();
+      const value = part.slice(index + 1).trim();
+      try {
+        cookies[key] = decodeURIComponent(value);
+      } catch {
+        cookies[key] = value;
+      }
     }
   }
   return cookies;
