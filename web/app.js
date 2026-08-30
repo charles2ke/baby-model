@@ -92,6 +92,7 @@ function showSignedIn(session, route = routeFromHash()) {
 function showSignedOut() {
   state.csrfToken = '';
   state.email = '';
+  $('session-email').textContent = '';
   const answer = $('answer');
   answer.replaceChildren();
   answer.hidden = true;
