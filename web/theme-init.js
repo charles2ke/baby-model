@@ -19,4 +19,7 @@ if (stored !== 'light' && stored !== 'dark') {
       : 'dark';
 }
 document.documentElement.setAttribute('data-theme', stored);
-document.getElementById('theme-color').setAttribute('content', themeColors[stored]);
+var themeColor = document.getElementById('theme-color');
+if (themeColor) {
+  themeColor.setAttribute('content', themeColors[stored]);
+}
