@@ -1,0 +1,76 @@
+/* Styles for the generated GitHub Pages site. */
+:root {
+  color-scheme: light dark;
+  --bg: #0f172a;
+  --card: #111c33;
+  --accent: #38bdf8;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.65;
+}
+
+.prose {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--accent);
+  line-height: 1.25;
+}
+
+a {
+  color: var(--accent);
+}
+
+img {
+  max-width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid #1e293b;
+}
+
+code,
+pre {
+  background: var(--card);
+  border-radius: 0.5rem;
+}
+
+code {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.9em;
+}
+
+pre {
+  padding: 1rem;
+  overflow-x: auto;
+  border: 1px solid #1e293b;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  border: 1px solid #1e293b;
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+}
+
+blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+}
