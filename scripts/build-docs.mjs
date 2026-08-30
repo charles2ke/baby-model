@@ -25,6 +25,9 @@ const CAPTIONS = {
     'Questions your documents cannot answer are refused instead of guessed',
   '05-isolated-accounts.png': 'A second account can neither see nor query another user documents',
   '06-account-erased.png': 'One click erases the account and every stored document',
+  '07-mobile-ask.png': 'Asking a question is a page of its own and the primary action on mobile',
+  '08-mobile-documents.png':
+    'Every page does one thing, with a thumb-friendly tab bar on small screens',
 };
 
 function replaceSection(markdown, name, body) {
