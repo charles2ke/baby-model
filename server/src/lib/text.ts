@@ -48,7 +48,7 @@ export function chunkText(text: string, maxChars = 600): string[] {
 export const REDACTED = '[redacted: instruction-like content]';
 
 /** Invisible characters used to smuggle instructions past human review. */
-const INVISIBLE_CHARACTERS = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g;
+const INVISIBLE_CHARACTERS = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
 
 /**
  * Patterns that try to steer an assistant instead of stating a fact, plus the
