@@ -1,14 +1,52 @@
+/*
+ * Design tokens. Dark is the default palette and the light palette is applied
+ * whenever `data-theme="light"` is set on the root element, which the theme
+ * script does for both an explicit choice and a system preference. Keeping the
+ * light values in one place avoids duplicating them in a media query.
+ */
 :root {
-  color-scheme: light dark;
-  --bg: #0f172a;
-  --card: #111c33;
-  --field: #0b1425;
-  --line: #1e293b;
+  color-scheme: dark;
+  --bg: #080d1a;
+  --bg-glow-1: rgba(56, 189, 248, 0.18);
+  --bg-glow-2: rgba(129, 140, 248, 0.16);
+  --surface: rgba(19, 28, 48, 0.82);
+  --surface-solid: #131c30;
+  --field: rgba(8, 13, 26, 0.72);
+  --line: rgba(148, 163, 184, 0.22);
+  --line-strong: rgba(148, 163, 184, 0.38);
   --accent: #38bdf8;
-  --text: #e2e8f0;
+  --accent-strong: #0ea5e9;
+  --accent-contrast: #04202f;
+  --accent-soft: rgba(56, 189, 248, 0.14);
+  --text: #e6edf7;
   --muted: #94a3b8;
   --danger: #f87171;
-  --tabbar-height: 4.25rem;
+  --shadow: 0 18px 40px -24px rgba(2, 6, 23, 0.95);
+  --tabbar-bg: rgba(10, 16, 30, 0.88);
+  --radius: 1rem;
+  --radius-sm: 0.7rem;
+  --tabbar-height: 4.5rem;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f4f7fc;
+  --bg-glow-1: rgba(56, 189, 248, 0.22);
+  --bg-glow-2: rgba(129, 140, 248, 0.18);
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-solid: #ffffff;
+  --field: rgba(255, 255, 255, 0.9);
+  --line: rgba(15, 23, 42, 0.12);
+  --line-strong: rgba(15, 23, 42, 0.22);
+  --accent: #0284c7;
+  --accent-strong: #0369a1;
+  --accent-contrast: #f8fbff;
+  --accent-soft: rgba(2, 132, 199, 0.12);
+  --text: #0f172a;
+  --muted: #52627a;
+  --danger: #dc2626;
+  --shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.45);
+  --tabbar-bg: rgba(255, 255, 255, 0.9);
 }
 
 * {
@@ -21,10 +59,17 @@ html {
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
+  min-height: 100vh;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Inter, sans-serif;
+  background-color: var(--bg);
+  /* Soft aurora glows give the portal depth without any external assets. */
+  background-image:
+    radial-gradient(60rem 32rem at 15% -12%, var(--bg-glow-1), transparent 65%),
+    radial-gradient(48rem 30rem at 92% 4%, var(--bg-glow-2), transparent 60%);
+  background-attachment: fixed;
   color: var(--text);
-  line-height: 1.5;
+  line-height: 1.55;
   overflow-wrap: break-word;
   /* Reserves room for the fixed tab bar so nothing hides behind it. */
   padding-bottom: var(--tabbar-height);
@@ -32,34 +77,95 @@ body {
 }
 
 .topbar {
-  padding: 1rem 1rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 0.9rem 1rem;
+  padding-top: calc(0.9rem + env(safe-area-inset-top));
+}
+
+.brand-block {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .brand {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.brand-mark {
   color: var(--accent);
 }
 
 .tagline {
-  margin: 0.15rem 0 0;
+  margin: 0.1rem 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+}
+
+/* Compact segmented control: system / light / dark, thumb friendly on phones. */
+.theme-switch {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.theme-option[aria-pressed='true'] {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--accent-contrast);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 main {
-  max-width: 44rem;
+  max-width: 46rem;
   margin: 0 auto;
-  padding: 1rem 1rem 2rem;
+  padding: 0.5rem 1rem 2rem;
 }
 
 h1 {
   margin: 0;
-  font-size: 1.35rem;
-  line-height: 1.3;
+  font-size: 1.4rem;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
 }
 
 h1:focus-visible {
@@ -68,42 +174,56 @@ h1:focus-visible {
 }
 
 .page-intro {
-  margin: 0.35rem 0 0;
+  margin: 0.4rem 0 0;
   color: var(--muted);
   font-size: 0.95rem;
 }
 
 .card {
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 0.9rem;
-  padding: 1.1rem;
+  border-radius: var(--radius);
+  padding: 1.15rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
 }
 
 /* Asking a question is the primary job of the portal, so it gets its own
    full-width, accented page instead of sitting in a card beside other tools. */
 .ask {
-  background: linear-gradient(180deg, rgba(56, 189, 248, 0.14), rgba(56, 189, 248, 0));
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  border-radius: 0.9rem;
-  padding: 1.25rem 1.1rem 1.4rem;
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 1.35rem 1.15rem 1.5rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+
+.ask::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 0.25rem;
+  background: linear-gradient(90deg, var(--accent), var(--bg-glow-2));
 }
 
 .ask h1 {
-  font-size: 1.6rem;
-  color: var(--accent);
+  font-size: 1.65rem;
 }
 
 .ask-form input {
   font-size: 1.05rem;
-  padding: 0.85rem 0.9rem;
-  border-color: rgba(56, 189, 248, 0.55);
+  padding: 0.9rem 1rem;
+  border-color: var(--line-strong);
 }
 
 label {
   display: block;
   margin-top: 0.9rem;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: var(--muted);
 }
 
@@ -111,11 +231,11 @@ input,
 select,
 textarea {
   width: 100%;
-  margin-top: 0.3rem;
-  padding: 0.7rem 0.75rem;
-  min-height: 2.75rem;
-  border-radius: 0.6rem;
-  border: 1px solid #334155;
+  margin-top: 0.35rem;
+  padding: 0.75rem 0.85rem;
+  min-height: 2.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
   background: var(--field);
   color: var(--text);
   font: inherit;
@@ -124,7 +244,7 @@ textarea {
 }
 
 input[type='file'] {
-  padding: 0.55rem 0.6rem;
+  padding: 0.6rem 0.65rem;
 }
 
 input:focus-visible,
@@ -137,7 +257,7 @@ button:focus-visible,
 }
 
 .actions {
-  margin-top: 1.1rem;
+  margin-top: 1.15rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
@@ -150,12 +270,12 @@ button:focus-visible,
 button {
   font: inherit;
   cursor: pointer;
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
   border: none;
-  padding: 0.7rem 1.2rem;
-  min-height: 2.75rem;
-  background: var(--accent);
-  color: #06263a;
+  padding: 0.75rem 1.25rem;
+  min-height: 2.9rem;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--accent-contrast);
   font-weight: 600;
   touch-action: manipulation;
 }
@@ -167,14 +287,14 @@ button {
 button.primary-cta {
   width: 100%;
   font-size: 1.05rem;
-  padding: 0.85rem 1.2rem;
-  min-height: 3rem;
+  padding: 0.9rem 1.25rem;
+  min-height: 3.1rem;
 }
 
 button.secondary {
   background: transparent;
-  border: 1px solid var(--accent);
-  color: var(--accent);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
 }
 
 button.danger {
@@ -207,12 +327,18 @@ footer p {
   text-align: center;
 }
 
+/* Errors are styled through a class because the CSP forbids inline styles. */
+.status.error {
+  color: var(--danger);
+}
+
 .answer {
-  margin-top: 1.25rem;
-  padding: 1rem;
+  margin-top: 1.3rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
   border-left: 3px solid var(--accent);
   background: var(--field);
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
 }
 
 .answer h2 {
@@ -245,9 +371,10 @@ footer p {
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.8rem 0.9rem;
   background: var(--field);
-  border-radius: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 
 .documents li.empty {
@@ -272,9 +399,14 @@ footer p {
 }
 
 .badge {
-  font-size: 0.7rem;
+  align-self: flex-start;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  font-weight: 700;
   color: var(--accent);
 }
 
@@ -288,7 +420,8 @@ footer p {
   gap: 0.25rem;
   padding: 0.4rem 0.5rem;
   padding-bottom: calc(0.4rem + env(safe-area-inset-bottom));
-  background: rgba(15, 23, 42, 0.97);
+  background: var(--tabbar-bg);
+  backdrop-filter: blur(16px);
   border-top: 1px solid var(--line);
 }
 
@@ -299,7 +432,7 @@ footer p {
   justify-content: center;
   min-height: 3rem;
   padding: 0.4rem 0.35rem;
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 600;
@@ -310,20 +443,20 @@ footer p {
 
 .tab.active {
   color: var(--accent);
-  background: rgba(56, 189, 248, 0.12);
+  background: var(--accent-soft);
 }
 
 /* The Ask tab is the standout call to action, split off from the rest. */
 .tab-primary {
   flex: 1.25 1 0;
-  background: var(--accent);
-  color: #06263a;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--accent-contrast);
 }
 
 .tab-primary.active {
-  background: var(--accent);
-  color: #06263a;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: var(--accent-contrast);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .tab-divider {
@@ -345,19 +478,20 @@ footer {
   }
 
   .topbar {
-    padding: 1.25rem 2rem 1rem;
+    padding: 1.4rem 2rem 0.75rem;
   }
 
   .brand {
-    font-size: 1.6rem;
+    font-size: 1.5rem;
   }
 
   .tabbar {
     position: static;
-    max-width: 44rem;
-    margin: 1rem auto 0;
+    max-width: 46rem;
+    margin: 0.75rem auto 0;
     padding: 0 1rem;
     background: none;
+    backdrop-filter: none;
     border-top: none;
     gap: 0.5rem;
   }
@@ -373,12 +507,12 @@ footer {
   }
 
   main {
-    padding: 1.5rem 1rem 3rem;
+    padding: 1.25rem 1rem 3rem;
   }
 
   .card,
   .ask {
-    padding: 1.5rem;
+    padding: 1.6rem;
   }
 
   .actions.stack {
@@ -397,7 +531,17 @@ footer {
 
 @media (prefers-reduced-motion: no-preference) {
   .tab,
+  .theme-option,
   button {
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  button:active,
+  .theme-option:active {
+    transform: scale(0.98);
   }
 }

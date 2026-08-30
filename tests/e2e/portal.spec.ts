@@ -152,3 +152,39 @@ test('every page does one thing and works on a small mobile screen', async ({ pa
   await expect(page.locator('#tabbar')).toBeVisible();
   await expect(page.locator('#tab-ask')).toHaveAttribute('aria-current', 'page');
 });
+
+test('the theme can be pinned to light or dark and survives a reload', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signUp(page, uniqueEmail('theme'));
+
+  await page.getByRole('button', { name: 'Light theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByRole('button', { name: 'Light theme' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.getByRole('button', { name: 'System theme' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await page.screenshot({ path: `${SHOTS}/09-light-theme.png`, fullPage: true, animations: 'disabled' });
+
+  // The choice is remembered across reloads, before the first paint.
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+  await page.getByRole('button', { name: 'Dark theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.screenshot({ path: `${SHOTS}/10-dark-theme.png`, fullPage: true, animations: 'disabled' });
+
+  // `System theme` follows the device, so it flips with the emulated setting.
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.getByRole('button', { name: 'System theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('button', { name: 'System theme' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});

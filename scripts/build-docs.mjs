@@ -28,6 +28,8 @@ const CAPTIONS = {
   '07-mobile-ask.png': 'Asking a question is a page of its own and the primary action on mobile',
   '08-mobile-documents.png':
     'Every page does one thing, with a thumb-friendly tab bar on small screens',
+  '09-light-theme.png': 'A light theme for bright rooms, remembered across visits',
+  '10-dark-theme.png': 'A dark theme, or simply follow the theme of the device',
 };
 
 function replaceSection(markdown, name, body) {

@@ -9,14 +9,37 @@
       content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, noai, noimageai"
     />
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta id="theme-color" name="theme-color" content="#080d1a" />
     <title>baby-model &middot; your private document model</title>
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <header class="topbar">
-      <p class="brand">baby-model</p>
-      <p class="tagline">A model that only knows <em>your</em> documents.</p>
+      <div class="brand-block">
+        <p class="brand"><span class="brand-mark">baby</span>-model</p>
+        <p class="tagline">A model that only knows <em>your</em> documents.</p>
+      </div>
+      <div id="theme-switch" class="theme-switch" role="group" aria-label="Colour theme">
+        <button
+          id="theme-system"
+          class="theme-option"
+          type="button"
+          title="Match system theme"
+          aria-pressed="true"
+        >
+          <span aria-hidden="true">◐</span>
+          <span class="visually-hidden">System theme</span>
+        </button>
+        <button id="theme-light" class="theme-option" type="button" title="Light theme" aria-pressed="false">
+          <span aria-hidden="true">☀</span>
+          <span class="visually-hidden">Light theme</span>
+        </button>
+        <button id="theme-dark" class="theme-option" type="button" title="Dark theme" aria-pressed="false">
+          <span aria-hidden="true">☾</span>
+          <span class="visually-hidden">Dark theme</span>
+        </button>
+      </div>
     </header>
 
     <nav id="tabbar" class="tabbar" aria-label="Sections" hidden>

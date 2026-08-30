@@ -45,6 +45,14 @@ extraction all run locally inside the application process.
 ### Every page does one thing, with a thumb-friendly tab bar on small screens
 
 ![Every page does one thing, with a thumb-friendly tab bar on small screens](docs/screenshots/08-mobile-documents.png)
+
+### A light theme for bright rooms, remembered across visits
+
+![A light theme for bright rooms, remembered across visits](docs/screenshots/09-light-theme.png)
+
+### A dark theme, or simply follow the theme of the device
+
+![A dark theme, or simply follow the theme of the device](docs/screenshots/10-dark-theme.png)
 <!-- screenshots:end -->
 
 ## Features
@@ -58,6 +66,9 @@ extraction all run locally inside the application process.
 - **Mobile first** — a thumb-friendly bottom tab bar, full-width controls, large
   tap targets and safe-area padding on phones; the same tabs move to the top on
   larger screens.
+- **Light and dark themes** — a switch in the header follows the device theme by
+  default and can be pinned to light or dark; the choice is remembered locally
+  and applied before the first paint.
 - **Explicit refusals** — if nothing relevant is found, the model answers
   “I can only answer from your own documents…”, never inventing facts.
 - **Strict isolation** — every query and document lookup is scoped by the owner's
