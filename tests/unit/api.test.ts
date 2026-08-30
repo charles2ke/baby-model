@@ -65,17 +65,13 @@ describe('api', () => {
   });
 
   it('enables proxy trust only when explicitly configured', () => {
-    const previous = process.env.TRUST_PROXY;
+    const previous = { ...process.env };
     process.env.TRUST_PROXY = '1';
     try {
       const trustedApp = createApp({ config: testConfig(), db: openDatabase(':memory:') });
       expect(trustedApp.get('trust proxy')).toBe(1);
     } finally {
-      if (previous === undefined) {
-        delete process.env.TRUST_PROXY;
-      } else {
-        process.env.TRUST_PROXY = previous;
-      }
+      process.env = previous;
     }
   });
 
