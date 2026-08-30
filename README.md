@@ -76,7 +76,9 @@ extraction all run locally inside the application process.
 | Database | SQLite file created with `0600` permissions inside a `0700` data directory |
 | Authorisation | Every document, chunk and export query filters on `user_id`; cross-account access returns `404` |
 | Transport & headers | `helmet` with a strict CSP (`default-src 'self'`, no framing, no object sources), `Referrer-Policy: no-referrer`, `Cache-Control: no-store` |
-| Abuse protection | Rate-limited authentication endpoints, upload size limits, UTF-8 text-only uploads |
+| Abuse protection | Global, per-question and per-authentication rate limits, upload size limits, UTF-8 text-only uploads |
+| Crawlers & AI scrapers | `robots.txt` disallows every user agent (including `GPTBot`, `Google-Extended`, `ClaudeBot`, `CCBot`, `PerplexityBot` and friends) and every response carries `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, noai, noimageai`. Nothing beyond the sign-in page is reachable without a session anyway |
+| Prompt injection | Instruction-like passages, hidden control characters and exfiltration URLs found in stored documents are redacted from answers, excerpts and titles; answers stay extractive and never leave the server |
 | Auditability | Append-only `audit_log` of registrations, logins, document changes, questions, exports and erasures (no document content is logged) |
 | No third parties | No analytics, no external fonts or CDNs, no outbound model API calls |
 
@@ -90,6 +92,9 @@ extraction all run locally inside the application process.
   account content as JSON.
 - **Right to erasure** — `DELETE /api/account` removes the user, documents, chunks
   and sessions, and anonymises the audit trail.
+- **No indexing or training** — the portal asks search engines and AI crawlers not
+  to index, archive, snippet or train on anything; confidential content is in any
+  case only served to an authenticated session over `Cache-Control: no-store`.
 - **Key management** — set `MASTER_KEY` (32 bytes, hex) from your secret manager in
   production; the server refuses to start in production without it.
 

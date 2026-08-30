@@ -1,4 +1,4 @@
-import { splitSentences, tokenize } from './text.js';
+import { redactPromptInjection, splitSentences, tokenize } from './text.js';
 
 export interface IndexedChunk {
   chunkId: number;
@@ -14,6 +14,7 @@ export interface ScoredChunk extends IndexedChunk {
 }
 
 export interface Answer {
+  /** Untrusted text quoted from the user's documents; never an instruction. */
   answer: string;
   grounded: boolean;
   citations: Array<{
@@ -92,7 +93,11 @@ function magnitude(vector: Map<string, number>): number {
   return Math.sqrt(sum);
 }
 
-/** Picks the sentences of a chunk that actually mention the question terms. */
+/**
+ * Picks the sentences of a chunk that actually mention the question terms, with
+ * any instruction-like content redacted so that a malicious document cannot
+ * take over this answer or any agent that later reads it.
+ */
 export function extractRelevantSentences(question: string, chunkText: string): string {
   const queryTokens = new Set(tokenize(question));
   const sentences = splitSentences(chunkText);
@@ -100,7 +105,7 @@ export function extractRelevantSentences(question: string, chunkText: string): s
     tokenize(sentence).some((token) => queryTokens.has(token)),
   );
   const selected = matching.length > 0 ? matching : sentences;
-  return selected.slice(0, 3).join(' ');
+  return redactPromptInjection(selected.slice(0, 3).join(' '));
 }
 
 /**
@@ -113,13 +118,14 @@ export function answerQuestion(
   chunks: IndexedChunk[],
   minimumScore = 0.05,
 ): Answer {
-  const ranked = rankChunks(question, chunks).filter((chunk) => chunk.score >= minimumScore);
+  const safeQuestion = redactPromptInjection(question);
+  const ranked = rankChunks(safeQuestion, chunks).filter((chunk) => chunk.score >= minimumScore);
   if (ranked.length === 0) {
     return { answer: NO_ANSWER, grounded: false, citations: [] };
   }
   const top = ranked.slice(0, 3);
   const answer = top
-    .map((chunk) => extractRelevantSentences(question, chunk.text))
+    .map((chunk) => extractRelevantSentences(safeQuestion, chunk.text))
     .filter((text, index, all) => text.length > 0 && all.indexOf(text) === index)
     .join(' ');
   return {
@@ -127,10 +133,10 @@ export function answerQuestion(
     grounded: true,
     citations: top.map((chunk) => ({
       documentId: chunk.documentId,
-      documentTitle: chunk.documentTitle,
+      documentTitle: redactPromptInjection(chunk.documentTitle),
       category: chunk.category,
       position: chunk.position,
-      excerpt: extractRelevantSentences(question, chunk.text),
+      excerpt: extractRelevantSentences(safeQuestion, chunk.text),
       score: Number(chunk.score.toFixed(4)),
     })),
   };
