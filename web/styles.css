@@ -338,6 +338,7 @@ footer {
 
 @media (min-width: 48rem) {
   :root {
+    /* Keeps a unit: calc() cannot add a unitless 0 to env(safe-area-inset-bottom). */
     --tabbar-height: 0rem;
   }
 

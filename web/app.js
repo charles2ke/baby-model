@@ -56,7 +56,7 @@ function render() {
     const active = name === route;
     page.hidden = !active;
     if (active) {
-      page.querySelector('h1').focus({ preventScroll: true });
+      page.querySelector('h1')?.focus({ preventScroll: true });
     }
   }
   $('tabbar').hidden = !signedIn;
@@ -92,7 +92,9 @@ function showSignedIn(session, route = routeFromHash()) {
 function showSignedOut() {
   state.csrfToken = '';
   state.email = '';
-  $('answer').hidden = true;
+  const answer = $('answer');
+  answer.replaceChildren();
+  answer.hidden = true;
   $('question').value = '';
   $('document-list').replaceChildren();
   render();
