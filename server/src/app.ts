@@ -15,6 +15,13 @@ import { safeEqual } from './lib/crypto.js';
 
 export const SESSION_COOKIE = 'bm_session';
 
+/**
+ * Applies to every response, including `robots.txt`-ignoring scrapers and AI
+ * crawlers: no indexing, no caching of snippets, no archive copies.
+ */
+export const ROBOTS_TAG =
+  'noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, noai, noimageai';
+
 const webRoot = path.resolve(fileURLToPath(new URL('../../web', import.meta.url)));
 
 const credentialsSchema = z.object({
@@ -94,6 +101,10 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
   app.use((_req, res, next) => {
     // User data must never be cached by proxies or the browser disk cache.
     res.setHeader('Cache-Control', 'no-store');
+    // Nothing on this host may be indexed, archived, snippeted or used as
+    // training data, by search engines or by AI crawlers.
+    res.setHeader('X-Robots-Tag', ROBOTS_TAG);
+    res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=(), interest-cohort=()');
     next();
   });
   app.use(express.json({ limit: config.maxUploadBytes }));
@@ -101,6 +112,23 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: config.maxUploadBytes, files: 1 },
+  });
+
+  const globalLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: Number(process.env.GLOBAL_RATE_LIMIT ?? 300),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please slow down.' },
+  });
+  app.use(globalLimiter);
+
+  const askLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: Number(process.env.ASK_RATE_LIMIT ?? 30),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many questions, please try again shortly.' },
   });
 
   const authLimiter = rateLimit({
@@ -161,7 +189,11 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
       return;
     }
     if (store.getUserByEmail(parsed.data.email)) {
-      res.status(409).json({ error: 'An account with those details already exists' });
+      // Spend the same work as a real sign-up and stay vague, so that the
+      // endpoint cannot be used to enumerate who has a vault on this host.
+      store.authenticate(parsed.data.email, parsed.data.password);
+      store.audit(null, 'auth.register_conflict');
+      res.status(409).json({ error: 'That account could not be created' });
       return;
     }
     const user = store.createUser(parsed.data.email, parsed.data.password);
@@ -256,7 +288,7 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
     res.json({ ok: true });
   });
 
-  app.post('/api/ask', requireAuth, (req: AuthenticatedRequest, res) => {
+  app.post('/api/ask', askLimiter, requireAuth, (req: AuthenticatedRequest, res) => {
     const parsed = questionSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: 'A question of at least 3 characters is required' });

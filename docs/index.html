@@ -82,7 +82,15 @@ account erasure (right to be forgotten).</li>
 </tr>
 <tr>
 <td>Abuse protection</td>
-<td>Rate-limited authentication endpoints, upload size limits, UTF-8 text-only uploads</td>
+<td>Global, per-question and per-authentication rate limits, upload size limits, UTF-8 text-only uploads</td>
+</tr>
+<tr>
+<td>Crawlers &amp; AI scrapers</td>
+<td><code>robots.txt</code> disallows every user agent (including <code>GPTBot</code>, <code>Google-Extended</code>, <code>ClaudeBot</code>, <code>CCBot</code>, <code>PerplexityBot</code> and friends) and every response carries <code>X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, noai, noimageai</code>. Nothing beyond the sign-in page is reachable without a session anyway</td>
+</tr>
+<tr>
+<td>Prompt injection</td>
+<td>Instruction-like passages, hidden control characters and exfiltration URLs found in stored documents are redacted from answers, excerpts and titles; answers stay extractive and never leave the server</td>
 </tr>
 <tr>
 <td>Auditability</td>
@@ -103,6 +111,9 @@ questions.</li>
 account content as JSON.</li>
 <li><strong>Right to erasure</strong> — <code>DELETE /api/account</code> removes the user, documents, chunks
 and sessions, and anonymises the audit trail.</li>
+<li><strong>No indexing or training</strong> — the portal asks search engines and AI crawlers not
+to index, archive, snippet or train on anything; confidential content is in any
+case only served to an authenticated session over <code>Cache-Control: no-store</code>.</li>
 <li><strong>Key management</strong> — set <code>MASTER_KEY</code> (32 bytes, hex) from your secret manager in
 production; the server refuses to start in production without it.</li>
 </ul>
