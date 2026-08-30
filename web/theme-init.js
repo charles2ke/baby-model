@@ -5,12 +5,18 @@
  * loads and keeps the resolved palette in step with changes.
  */
 var stored = null;
+var themeColors = { light: '#f4f7fc', dark: '#080d1a' };
 try {
   stored = window.localStorage.getItem('baby-model-theme');
 } catch {
   // Storage can be blocked; the device preference is then used.
 }
 if (stored !== 'light' && stored !== 'dark') {
-  stored = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  stored =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: light)').matches
+      ? 'light'
+      : 'dark';
 }
 document.documentElement.setAttribute('data-theme', stored);
+document.getElementById('theme-color').setAttribute('content', themeColors[stored]);
