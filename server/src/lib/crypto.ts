@@ -76,12 +76,12 @@ export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-/** Compares two secrets without leaking timing information. */
+/**
+ * Compares two secrets without leaking timing information, including the
+ * length of either value: both sides are hashed to a fixed size first.
+ */
 export function safeEqual(a: string, b: string): boolean {
-  const bufferA = Buffer.from(a);
-  const bufferB = Buffer.from(b);
-  if (bufferA.length !== bufferB.length) {
-    return false;
-  }
-  return crypto.timingSafeEqual(bufferA, bufferB);
+  const digestA = crypto.createHash('sha256').update(a).digest();
+  const digestB = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(digestA, digestB);
 }

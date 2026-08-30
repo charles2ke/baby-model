@@ -45,12 +45,16 @@ body {
   color: var(--muted);
 }
 
+main,
+#app-view {
+  display: grid;
+  gap: 1.25rem;
+}
+
 main {
   max-width: 60rem;
   margin: 0 auto;
   padding: 1.5rem 1rem 3rem;
-  display: grid;
-  gap: 1.25rem;
 }
 
 .card {
@@ -58,7 +62,6 @@ main {
   border: 1px solid #1e293b;
   border-radius: 0.75rem;
   padding: 1.25rem 1.5rem;
-  margin-bottom: 1.25rem;
 }
 
 .card h2 {

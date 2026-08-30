@@ -38,6 +38,12 @@ export interface DocumentSummary {
 export const CATEGORIES = ['health', 'finance', 'professional', 'education', 'other'] as const;
 export type Category = (typeof CATEGORIES)[number];
 
+/**
+ * Hash of a value nobody can authenticate against. Verifying against it makes
+ * failed logins for unknown accounts as expensive as for existing ones.
+ */
+const DUMMY_PASSWORD_HASH = hashPassword(randomToken());
+
 /** Normalises an email address for storage and lookup. */
 export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -86,7 +92,7 @@ export class Store {
     const user = this.getUserByEmail(email);
     if (!user) {
       // Spend comparable time so that account enumeration is not possible.
-      hashPassword(password);
+      verifyPassword(password, DUMMY_PASSWORD_HASH);
       return undefined;
     }
     return verifyPassword(password, user.password_hash) ? user : undefined;

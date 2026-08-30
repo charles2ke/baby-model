@@ -28,6 +28,15 @@ async function api(path, { method = 'GET', body, form } = {}) {
   return data;
 }
 
+/** Runs an action and surfaces any failure in the status line. */
+async function guard(action) {
+  try {
+    await action();
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+}
+
 function showSignedIn(session) {
   state.csrfToken = session.csrfToken;
   state.email = session.email;
@@ -68,11 +77,13 @@ async function refreshDocuments() {
     remove.type = 'button';
     remove.className = 'link danger';
     remove.textContent = 'Delete';
-    remove.addEventListener('click', async () => {
-      await api(`/api/documents/${doc.id}`, { method: 'DELETE' });
-      setStatus('Document deleted.');
-      await refreshDocuments();
-    });
+    remove.addEventListener('click', () =>
+      guard(async () => {
+        await api(`/api/documents/${doc.id}`, { method: 'DELETE' });
+        setStatus('Document deleted.');
+        await refreshDocuments();
+      }),
+    );
     item.append(label, remove);
     list.append(item);
   }
@@ -110,82 +121,74 @@ async function handleAuth(action) {
 }
 
 function wire() {
-  $('auth-form').addEventListener('submit', async (event) => {
+  $('auth-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    try {
-      await handleAuth('login');
-    } catch (error) {
-      setStatus(error.message, true);
-    }
+    guard(() => handleAuth('login'));
   });
 
-  $('register-button').addEventListener('click', async () => {
-    try {
-      await handleAuth('register');
-    } catch (error) {
-      setStatus(error.message, true);
-    }
-  });
+  $('register-button').addEventListener('click', () => guard(() => handleAuth('register')));
 
-  $('logout-button').addEventListener('click', async () => {
-    await api('/api/auth/logout', { method: 'POST' });
-    showSignedOut();
-    setStatus('Signed out.');
-  });
+  $('logout-button').addEventListener('click', () =>
+    guard(async () => {
+      await api('/api/auth/logout', { method: 'POST' });
+      showSignedOut();
+      setStatus('Signed out.');
+    }),
+  );
 
-  $('upload-form').addEventListener('submit', async (event) => {
+  $('upload-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    const form = new FormData();
-    form.append('title', $('title').value);
-    form.append('category', $('category').value);
-    form.append('content', $('content').value);
-    const file = $('file').files[0];
-    if (file) {
-      form.append('file', file);
-    }
-    try {
+    guard(async () => {
+      const form = new FormData();
+      form.append('title', $('title').value);
+      form.append('category', $('category').value);
+      form.append('content', $('content').value);
+      const file = $('file').files[0];
+      if (file) {
+        form.append('file', file);
+      }
       await api('/api/documents', { method: 'POST', form });
       $('upload-form').reset();
       setStatus('Document stored and encrypted.');
       await refreshDocuments();
-    } catch (error) {
-      setStatus(error.message, true);
-    }
+    });
   });
 
-  $('ask-form').addEventListener('submit', async (event) => {
+  $('ask-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    try {
+    guard(async () => {
       const result = await api('/api/ask', {
         method: 'POST',
         body: { question: $('question').value },
       });
       renderAnswer(result);
       setStatus('');
-    } catch (error) {
-      setStatus(error.message, true);
-    }
+    });
   });
 
-  $('export-button').addEventListener('click', async () => {
-    const data = await api('/api/account/export');
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'baby-model-export.json';
-    link.click();
-    URL.revokeObjectURL(link.href);
-    setStatus('Export downloaded.');
-  });
+  $('export-button').addEventListener('click', () =>
+    guard(async () => {
+      const data = await api('/api/account/export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'baby-model-export.json';
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setStatus('Export downloaded.');
+    }),
+  );
 
-  $('delete-account-button').addEventListener('click', async () => {
-    if (!window.confirm('Permanently delete your account and every document?')) {
-      return;
-    }
-    await api('/api/account', { method: 'DELETE' });
-    showSignedOut();
-    setStatus('Account and all documents erased.');
-  });
+  $('delete-account-button').addEventListener('click', () =>
+    guard(async () => {
+      if (!window.confirm('Permanently delete your account and every document?')) {
+        return;
+      }
+      await api('/api/account', { method: 'DELETE' });
+      showSignedOut();
+      setStatus('Account and all documents erased.');
+    }),
+  );
 }
 
 async function boot() {
