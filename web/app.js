@@ -226,7 +226,7 @@ function wire() {
   const syncSystemTheme = () => applyTheme(storedTheme());
   if (typeof systemTheme.addEventListener === 'function') {
     systemTheme.addEventListener('change', syncSystemTheme);
-  } else {
+  } else if (typeof systemTheme.addListener === 'function') {
     systemTheme.addListener(syncSystemTheme);
   }
 
