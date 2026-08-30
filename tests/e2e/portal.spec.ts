@@ -16,16 +16,23 @@ async function signUp(page: Page, email: string): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Ask your documents' })).toBeVisible();
 }
 
+/** Every page does one thing, so tests move between them through the tab bar. */
+async function openTab(page: Page, name: string): Promise<void> {
+  await page.getByRole('link', { name }).click();
+}
+
 async function addDocument(
   page: Page,
   title: string,
   category: string,
   content: string,
 ): Promise<void> {
+  await openTab(page, 'Add');
   await page.getByLabel('Title').fill(title);
   await page.getByLabel('Category').selectOption(category);
   await page.getByLabel('Paste text').fill(content);
   await page.getByRole('button', { name: 'Save securely' }).click();
+  await expect(page.getByRole('heading', { name: 'Your documents' })).toBeVisible();
   await expect(page.getByText(title)).toBeVisible();
 }
 
@@ -56,6 +63,7 @@ test('a user signs up, stores documents and gets grounded answers', async ({ pag
   );
   await page.screenshot({ path: `${SHOTS}/02-documents.png`, fullPage: true });
 
+  await openTab(page, 'Ask');
   await page.getByLabel('Question').fill('What was my HDL cholesterol?');
   await page.getByRole('button', { name: 'Ask' }).click();
   await expect(page.locator('#answer')).toContainText('62 mg/dL');
@@ -85,8 +93,9 @@ test('documents are private to the account that uploaded them', async ({ page, c
   await expect(intruderPage.locator('#answer')).toContainText(
     'none of them contain that information',
   );
-  await expect(intruderPage.locator('#document-list')).toContainText('No documents yet');
   await intruderPage.screenshot({ path: `${SHOTS}/05-isolated-accounts.png`, fullPage: true });
+  await openTab(intruderPage, 'Documents');
+  await expect(intruderPage.locator('#document-list')).toContainText('No documents yet');
   await intruderPage.close();
 });
 
@@ -97,19 +106,49 @@ test('a user can sign out, sign back in, delete a document and erase the account
   await signUp(page, email);
   await addDocument(page, 'Notes', 'other', 'Remember to renew the passport in June 2027.');
 
+  await openTab(page, 'Account');
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: /Sign in or create/ })).toBeVisible();
 
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password (minimum 12 characters)').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByText('Notes')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ask your documents' })).toBeVisible();
 
+  await openTab(page, 'Documents');
+  await expect(page.getByText('Notes')).toBeVisible();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.locator('#document-list')).toContainText('No documents yet');
 
+  await openTab(page, 'Account');
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Delete account' }).click();
   await expect(page.getByText('Account and all documents erased.')).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/06-account-erased.png`, fullPage: true });
+});
+
+test('every page does one thing and works on a small mobile screen', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signUp(page, uniqueEmail('mobile'));
+
+  await addDocument(
+    page,
+    'Travel insurance',
+    'other',
+    'The travel insurance policy number is TI-99213 and the cover expires in August 2026.',
+  );
+  await expect(page.locator('main section.page:visible')).toHaveCount(1);
+  await page.screenshot({ path: `${SHOTS}/08-mobile-documents.png`, fullPage: true });
+
+  await openTab(page, 'Ask');
+  await expect(page.locator('main section.page:visible')).toHaveCount(1);
+  await expect(page.getByLabel('Paste text')).toBeHidden();
+  await page.getByLabel('Question').fill('What is my travel insurance policy number?');
+  await page.getByRole('button', { name: 'Ask' }).click();
+  await expect(page.locator('#answer')).toContainText('TI-99213');
+  await page.screenshot({ path: `${SHOTS}/07-mobile-ask.png`, fullPage: true });
+
+  // The tab bar stays reachable at the bottom of the small screen.
+  await expect(page.locator('#tabbar')).toBeVisible();
+  await expect(page.locator('#tab-ask')).toHaveAttribute('aria-current', 'page');
 });
