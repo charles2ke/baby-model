@@ -2,6 +2,8 @@
 
 A model that only knows **your** data.
 
+**Website: <https://charles2ke.github.io/baby-model/>**
+
 `baby-model` is a self-hosted portal that learns from the documents you give it —
 health records, finance statements, professional paperwork, education certificates
 and anything else — and answers questions **only** from those documents. Every
@@ -190,7 +192,8 @@ npm run test:e2e        # Playwright end-to-end tests and screenshots
 ## Documentation site
 
 `npm run docs:build` refreshes the screenshot gallery and coverage table in this
-README and regenerates `docs/index.html`, which CI publishes to GitHub Pages.
+README and regenerates `docs/index.html`, which CI publishes to GitHub Pages at
+<https://charles2ke.github.io/baby-model/>.
 
 ## License
 
