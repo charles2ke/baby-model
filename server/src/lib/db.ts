@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export type Db = Database.Database;
+export type Statement = Database.Statement;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -50,6 +51,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_documents_user ON documents(user_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_user ON chunks(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id);
 `;
 
 /** Opens (and migrates) the SQLite database used by the portal. */
