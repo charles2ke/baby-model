@@ -49,14 +49,24 @@ export function rankChunks(question: string, chunks: IndexedChunk[]): ScoredChun
     return { chunk, tokens };
   });
 
-  const idf = (token: string): number =>
-    Math.log((chunks.length + 1) / ((documentFrequency.get(token) ?? 0) + 1)) + 1;
+  // The inverse document frequency of a token never changes within a call, so
+  // it is computed once instead of once per chunk.
+  const idfCache = new Map<string, number>();
+  const idf = (token: string): number => {
+    let value = idfCache.get(token);
+    if (value === undefined) {
+      value = Math.log((chunks.length + 1) / ((documentFrequency.get(token) ?? 0) + 1)) + 1;
+      idfCache.set(token, value);
+    }
+    return value;
+  };
 
   const queryVector = buildVector(queryTokens, idf);
+  const queryMagnitude = magnitude(queryVector);
   return tokenisedChunks
     .map(({ chunk, tokens }) => ({
       ...chunk,
-      score: cosine(queryVector, buildVector(tokens, idf)),
+      score: cosine(queryVector, queryMagnitude, buildVector(tokens, idf)),
     }))
     .filter((scored) => scored.score > 0)
     .sort((a, b) => b.score - a.score || a.chunkId - b.chunkId);
@@ -74,7 +84,7 @@ function buildVector(tokens: string[], idf: (token: string) => number): Map<stri
   return vector;
 }
 
-function cosine(a: Map<string, number>, b: Map<string, number>): number {
+function cosine(a: Map<string, number>, magnitudeA: number, b: Map<string, number>): number {
   let dot = 0;
   for (const [token, weight] of a) {
     dot += weight * (b.get(token) ?? 0);
@@ -82,7 +92,7 @@ function cosine(a: Map<string, number>, b: Map<string, number>): number {
   if (dot === 0) {
     return 0;
   }
-  return dot / (magnitude(a) * magnitude(b));
+  return dot / (magnitudeA * magnitude(b));
 }
 
 function magnitude(vector: Map<string, number>): number {
@@ -123,20 +133,23 @@ export function answerQuestion(
   if (ranked.length === 0) {
     return { answer: NO_ANSWER, grounded: false, citations: [] };
   }
-  const top = ranked.slice(0, 3);
+  // Each excerpt is extracted once and reused for both the answer and its citation.
+  const top = ranked
+    .slice(0, 3)
+    .map((chunk) => ({ chunk, excerpt: extractRelevantSentences(safeQuestion, chunk.text) }));
   const answer = top
-    .map((chunk) => extractRelevantSentences(safeQuestion, chunk.text))
+    .map(({ excerpt }) => excerpt)
     .filter((text, index, all) => text.length > 0 && all.indexOf(text) === index)
     .join(' ');
   return {
     answer,
     grounded: true,
-    citations: top.map((chunk) => ({
+    citations: top.map(({ chunk, excerpt }) => ({
       documentId: chunk.documentId,
       documentTitle: redactPromptInjection(chunk.documentTitle),
       category: chunk.category,
       position: chunk.position,
-      excerpt: extractRelevantSentences(safeQuestion, chunk.text),
+      excerpt,
       score: Number(chunk.score.toFixed(4)),
     })),
   };
