@@ -450,15 +450,13 @@ export function decodeEncodedWords(value: string): string {
 }
 
 /**
- * Decodes quoted-printable text into the given charset (default UTF-8), matching the
- * `=XX` byte escapes and any literal characters. For non-UTF-8 charsets, literal characters
- * are treated as single bytes (their code point below 0x100), since single-byte charsets such
- * as ISO-8859-1 map directly; any literal character above that range is passed through as its
- * UTF-8 bytes rather than being lost.
+ * Decodes quoted-printable text into the given charset (default UTF-8). Only the `=XX` byte
+ * escapes carry the charset's raw bytes; RFC 2047 restricts literal (non-escaped) characters in
+ * an encoded word to plain ASCII, so they are encoded as UTF-8, which is byte-identical to every
+ * other charset for that range.
  */
 export function decodeQuotedPrintable(text: string, charset = 'utf-8'): string {
   const joined = text.replace(/=\r?\n/g, '');
-  const isUtf8 = /^utf-?8$/i.test(charset);
   const bytes: number[] = [];
   for (let index = 0; index < joined.length; index += 1) {
     const character = joined[index] as string;
@@ -466,17 +464,8 @@ export function decodeQuotedPrintable(text: string, charset = 'utf-8'): string {
     if (character === '=' && /^[0-9a-fA-F]{2}$/.test(hex)) {
       bytes.push(Number.parseInt(hex, 16));
       index += 2;
-    } else if (isUtf8) {
-      bytes.push(...Buffer.from(character, 'utf8'));
     } else {
-      const code = character.codePointAt(0) as number;
-      if (code < 0x100) {
-        // Single-byte charset (e.g. ISO-8859-1): the code point is the byte value.
-        bytes.push(code);
-      } else {
-        // Outside the single-byte range: preserve the character as UTF-8 rather than lose it.
-        bytes.push(...Buffer.from(character, 'utf8'));
-      }
+      bytes.push(...Buffer.from(character, 'utf8'));
     }
   }
   return decodeBytes(bytes, charset);
