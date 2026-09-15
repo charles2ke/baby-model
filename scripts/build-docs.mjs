@@ -30,6 +30,10 @@ const CAPTIONS = {
     'Every page does one thing, with a thumb-friendly tab bar on small screens',
   '09-light-theme.png': 'A light theme for bright rooms, remembered across visits',
   '10-dark-theme.png': 'A dark theme, or simply follow the theme of the device',
+  '11-imported-real-world-data.png':
+    'Bank statements and health records imported straight from provider exports',
+  '12-answer-from-imported-statement.png':
+    'Imported real-world data is answerable and cited like any other document',
 };
 
 function replaceSection(markdown, name, body) {

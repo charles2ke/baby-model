@@ -40,10 +40,19 @@ extraction all run locally inside the application process.</p>
 <p><img src="screenshots/09-light-theme.png" alt="A light theme for bright rooms, remembered across visits"></p>
 <h3>A dark theme, or simply follow the theme of the device</h3>
 <p><img src="screenshots/10-dark-theme.png" alt="A dark theme, or simply follow the theme of the device"></p>
+<h3>Bank statements and health records imported straight from provider exports</h3>
+<p><img src="screenshots/11-imported-real-world-data.png" alt="Bank statements and health records imported straight from provider exports"></p>
+<h3>Imported real-world data is answerable and cited like any other document</h3>
+<p><img src="screenshots/12-answer-from-imported-statement.png" alt="Imported real-world data is answerable and cited like any other document"></p>
 <!-- screenshots:end --><h2>Features</h2>
 <ul>
 <li><strong>Private document vault</strong> — upload or paste UTF-8 text documents, tagged as
 <code>health</code>, <code>finance</code>, <code>professional</code>, <code>education</code> or <code>other</code>.</li>
+<li><strong>Real-world imports</strong> — bring in the files the systems that hold your data
+actually produce: HL7 FHIR health exports from a patient portal or Apple
+Health, CSV statements from a bank or card issuer, <code>.eml</code> messages from a mail
+client and <code>.ics</code> calendar exports. Each file is converted to readable text
+locally, then stored encrypted like any other document.</li>
 <li><strong>Grounded question answering</strong> — TF-IDF retrieval over your own chunks plus
 extractive answering, with citations back to the document and section.</li>
 <li><strong>One job per page</strong> — asking a question, adding a document, browsing the vault
@@ -144,6 +153,7 @@ server/src/lib/
   db.ts              SQLite schema and hardened file permissions
   store.ts           Owner-scoped data access for users, sessions and documents
   text.ts            Tokenisation, sentence splitting and chunking
+  integrations.ts    Real-world connectors: FHIR, bank CSV, email, iCalendar
   model.ts           TF-IDF retrieval and extractive, cited answering
 tests/unit/          Vitest unit and API tests (100% coverage enforced)
 tests/e2e/           Playwright end-to-end tests that also produce the screenshots
@@ -198,6 +208,16 @@ tests/e2e/           Playwright end-to-end tests that also produce the screensho
 <td>Delete one of your documents</td>
 </tr>
 <tr>
+<td><code>GET</code></td>
+<td><code>/api/integrations</code></td>
+<td>List the real-world import connectors</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/integrations/:id/import</code></td>
+<td>Import a provider export as a document</td>
+</tr>
+<tr>
 <td><code>POST</code></td>
 <td><code>/api/ask</code></td>
 <td>Ask a question answered only from your documents</td>
@@ -213,6 +233,50 @@ tests/e2e/           Playwright end-to-end tests that also produce the screensho
 <td>Erase your account and all data</td>
 </tr>
 </tbody></table>
+<h2>Real-world integrations</h2>
+<p>Integrations are <strong>file-based and offline by design</strong>: you export your data from
+the provider yourself and hand the file to your vault. The portal never stores a
+provider credential, never calls a provider API and never sends your documents
+anywhere, so connecting a new source cannot widen the blast radius of an account
+takeover at either end.</p>
+<table>
+<thead>
+<tr>
+<th>Connector</th>
+<th>Typical source</th>
+<th>File</th>
+<th>Stored as</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fhir</code></td>
+<td>Patient portal, hospital record, Apple Health, Epic/Cerner export</td>
+<td><code>.json</code> FHIR R4 bundle</td>
+<td>Observations, conditions, medications, allergies, immunisations, procedures and reports as plain sentences (<code>health</code>)</td>
+</tr>
+<tr>
+<td><code>bank-csv</code></td>
+<td>Bank, credit card or payment account statement</td>
+<td><code>.csv</code></td>
+<td>One sentence per transaction plus a totals summary, with dates, descriptions, amounts, currencies and balances (<code>finance</code>)</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>Gmail, Outlook, Apple Mail or any IMAP client</td>
+<td><code>.eml</code></td>
+<td>Subject, sender, recipients, date and the decoded text body (<code>professional</code>)</td>
+</tr>
+<tr>
+<td><code>icalendar</code></td>
+<td>Google Calendar, Outlook, Apple Calendar, booking confirmations</td>
+<td><code>.ics</code></td>
+<td>One sentence per event with its start, end, location and notes (<code>professional</code>)</td>
+</tr>
+</tbody></table>
+<p>Pick the source on the <strong>Add</strong> page, upload the export (or paste it), and adjust
+the title and category if the suggested ones do not fit. Files that a connector
+cannot read are refused with an explanation instead of being stored, and the
+imported text is chunked, encrypted and cited exactly like a pasted document.</p>
 <h2>Getting started</h2>
 <pre><code class="language-bash">npm install
 npm run dev           # http://localhost:3000

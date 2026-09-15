@@ -188,3 +188,54 @@ test('the theme can be pinned to light or dark and survives a reload', async ({ 
     'true',
   );
 });
+
+test('real-world exports are imported and become answerable', async ({ page }) => {
+  await signUp(page, uniqueEmail('import'));
+
+  await openTab(page, 'Add');
+  await page.getByLabel('Source').selectOption('bank-csv');
+  await page.getByLabel('…or paste the contents of the export').fill(
+    [
+      'Date,Description,Amount,Currency,Balance',
+      '2024-03-01,ACME ENERGY direct debit,-84.20,EUR,1203.55',
+      '2024-03-02,Monthly salary,3200.00,EUR,4403.55',
+    ].join('\n'),
+  );
+  await page.getByRole('button', { name: 'Save securely' }).click();
+  await expect(page.getByText('Account statement (CSV import)')).toBeVisible();
+
+  await openTab(page, 'Add');
+  await page.getByLabel('Source').selectOption('fhir');
+  await page.getByLabel('…or paste the contents of the export').fill(
+    JSON.stringify({
+      resourceType: 'Bundle',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Observation',
+            code: { text: 'HDL cholesterol' },
+            valueQuantity: { value: 62, unit: 'mg/dL' },
+            effectiveDateTime: '2024-03-12',
+          },
+        },
+      ],
+    }),
+  );
+  await page.getByRole('button', { name: 'Save securely' }).click();
+  await expect(page.getByText('Health records (FHIR export)')).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/11-imported-real-world-data.png`, fullPage: true });
+
+  await openTab(page, 'Ask');
+  await page.getByLabel('Question').fill('What was my monthly salary payment?');
+  await page.getByRole('button', { name: 'Ask' }).click();
+  await expect(page.locator('#answer')).toContainText('3200.00 EUR');
+  await expect(page.locator('.citations')).toContainText('Account statement (CSV import)');
+  await page.screenshot({ path: `${SHOTS}/12-answer-from-imported-statement.png`, fullPage: true });
+
+  // A file the connector cannot read is refused instead of stored.
+  await openTab(page, 'Add');
+  await page.getByLabel('Source').selectOption('fhir');
+  await page.getByLabel('…or paste the contents of the export').fill('not a health export');
+  await page.getByRole('button', { name: 'Save securely' }).click();
+  await expect(page.locator('#status')).toContainText('not valid JSON');
+});
