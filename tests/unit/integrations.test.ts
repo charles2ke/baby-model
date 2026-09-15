@@ -316,6 +316,27 @@ describe('email messages', () => {
     expect(convert('email', eml).content).toContain('The minutes were approved.');
   });
 
+  it('prefers text/html over an attachment placed before it', () => {
+    const eml = [
+      'Subject: Newsletter',
+      'Content-Type: multipart/mixed; boundary="z"',
+      '',
+      '--z',
+      'Content-Type: application/pdf',
+      'Content-Transfer-Encoding: base64',
+      '',
+      Buffer.from('not readable text').toString('base64'),
+      '--z',
+      'Content-Type: TEXT/HTML',
+      '',
+      '<p>Board meeting confirmed for Friday.</p>',
+      '--z--',
+    ].join('\n');
+    const result = convert('email', eml);
+    expect(result.content).toContain('Board meeting confirmed for Friday.');
+    expect(result.content).not.toContain('not readable text');
+  });
+
   it('keeps messages without a body or with unknown subjects', () => {
     expect(convert('email', 'From: a@example.com').content).toBe('Subject: Email message\nFrom: a@example.com');
     expect(() => convert('email', 'just some text')).toThrow('not an email message');
@@ -325,6 +346,15 @@ describe('email messages', () => {
     expect(decodeEncodedWords('=?utf-8?Q?caf=C3=A9_bill?=')).toBe('café bill');
     expect(decodeEncodedWords('=?utf-8?x?oops?=')).toBe('=?utf-8?x?oops?=');
     expect(decodeQuotedPrintable('line =\r\ncontinues = here')).toBe('line continues = here');
+  });
+
+  it('decodes encoded words using their declared charset', () => {
+    expect(decodeEncodedWords('=?ISO-8859-1?Q?caf=E9?=')).toBe('café');
+    expect(decodeEncodedWords('=?ISO-8859-1?B?Y2Fm6Q==?=')).toBe('café');
+  });
+
+  it('falls back to UTF-8 for a charset label Node does not recognise', () => {
+    expect(decodeEncodedWords('=?bogus-charset?Q?caf=C3=A9?=')).toBe('café');
   });
 });
 

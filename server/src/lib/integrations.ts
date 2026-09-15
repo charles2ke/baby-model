@@ -431,16 +431,25 @@ function unfold(lines: string[]): string[] {
   return unfolded;
 }
 
+/** Decodes bytes using the named charset, falling back to UTF-8 for labels Node does not recognise. */
+function decodeBytes(bytes: number[], charset: string): string {
+  try {
+    return new TextDecoder(charset).decode(Uint8Array.from(bytes));
+  } catch {
+    return Buffer.from(bytes).toString('utf8');
+  }
+}
+
 /** Decodes the RFC 2047 encoded words mail clients use for non-ASCII headers. */
 export function decodeEncodedWords(value: string): string {
-  return value.replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g, (_match, _charset, encoding, payload) =>
+  return value.replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g, (_match, charset, encoding, payload) =>
     encoding.toLowerCase() === 'b'
-      ? Buffer.from(payload, 'base64').toString('utf8')
-      : decodeQuotedPrintable(String(payload).replace(/_/g, ' ')),
+      ? decodeBytes(Array.from(Buffer.from(payload, 'base64')), charset)
+      : decodeQuotedPrintable(String(payload).replace(/_/g, ' '), charset),
   );
 }
 
-export function decodeQuotedPrintable(text: string): string {
+export function decodeQuotedPrintable(text: string, charset = 'utf-8'): string {
   const joined = text.replace(/=\r?\n/g, '');
   const bytes: number[] = [];
   for (let index = 0; index < joined.length; index += 1) {
@@ -453,7 +462,7 @@ export function decodeQuotedPrintable(text: string): string {
       bytes.push(...Buffer.from(character, 'utf8'));
     }
   }
-  return Buffer.from(bytes).toString('utf8');
+  return decodeBytes(bytes, charset);
 }
 
 const HTML_ENTITIES: Record<string, string> = {
@@ -516,8 +525,10 @@ function messageText(part: MimePart): string {
       .split(new RegExp(`^--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:--)?[ \\t]*$`, 'm'))
       .slice(1, -1)
       .map((section) => splitPart(section.replace(/^\r?\n/, '')));
-    const plain = parts.find((child) => (child.headers['content-type'] ?? '').includes('text/plain'));
-    return messageText(plain ?? (parts[0] as MimePart));
+    const typeOf = (child: MimePart): string => (child.headers['content-type'] ?? '').toLowerCase();
+    const plain = parts.find((child) => typeOf(child).includes('text/plain'));
+    const html = parts.find((child) => typeOf(child).includes('text/html'));
+    return messageText(plain ?? html ?? (parts[0] as MimePart));
   }
   const decoded = decodePart(part);
   return /text\/html/i.test(contentType) ? stripHtml(decoded) : decoded;
