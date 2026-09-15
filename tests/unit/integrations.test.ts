@@ -353,6 +353,10 @@ describe('email messages', () => {
     expect(decodeEncodedWords('=?ISO-8859-1?B?Y2Fm6Q==?=')).toBe('café');
   });
 
+  it('strips an RFC 2231 language tag from the charset before decoding', () => {
+    expect(decodeEncodedWords('=?ISO-8859-1*en?Q?caf=E9?=')).toBe('café');
+  });
+
   it('falls back to UTF-8 for a charset label Node does not recognise', () => {
     expect(decodeEncodedWords('=?bogus-charset?Q?caf=C3=A9?=')).toBe('café');
   });

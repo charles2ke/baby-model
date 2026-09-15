@@ -442,11 +442,13 @@ function decodeBytes(bytes: Uint8Array | number[], charset: string): string {
 
 /** Decodes the RFC 2047 encoded words mail clients use for non-ASCII headers. */
 export function decodeEncodedWords(value: string): string {
-  return value.replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g, (_match, charset, encoding, payload) =>
-    encoding.toLowerCase() === 'b'
+  return value.replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g, (_match, rawCharset, encoding, payload) => {
+    // Strip the optional RFC 2231 language tag (e.g. "utf-8*en") before naming the charset.
+    const charset = String(rawCharset).split('*')[0].trim();
+    return encoding.toLowerCase() === 'b'
       ? decodeBytes(Buffer.from(payload, 'base64'), charset)
-      : decodeQuotedPrintable(String(payload).replace(/_/g, ' '), charset),
-  );
+      : decodeQuotedPrintable(String(payload).replace(/_/g, ' '), charset);
+  });
 }
 
 /**
