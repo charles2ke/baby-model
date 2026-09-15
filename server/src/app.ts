@@ -8,7 +8,8 @@ import { z } from 'zod';
 
 import { loadConfig, type AppConfig } from './lib/config.js';
 import { openDatabase, type Db } from './lib/db.js';
-import { CATEGORIES, Store, type UserRow } from './lib/store.js';
+import { CATEGORIES, Store, type UserRow, type Category } from './lib/store.js';
+import { IntegrationError, getIntegration, listIntegrations, runIntegration } from './lib/integrations.js';
 import { answerQuestion } from './lib/model.js';
 import { isPlainText } from './lib/text.js';
 import { safeEqual } from './lib/crypto.js';
@@ -36,6 +37,12 @@ const documentSchema = z.object({
 });
 
 const questionSchema = z.object({ question: z.string().trim().min(3).max(500) });
+
+const importSchema = z.object({
+  content: z.string().min(1),
+  title: z.string().trim().max(200).optional(),
+  category: z.enum(CATEGORIES).optional(),
+});
 
 interface AuthenticatedRequest extends Request {
   user?: UserRow;
@@ -266,6 +273,62 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
         parsed.data.content,
       );
       res.status(201).json({ document });
+    },
+  );
+
+  app.get('/api/integrations', requireAuth, (_req, res) => {
+    res.json({ integrations: listIntegrations() });
+  });
+
+  /**
+   * Imports an export file from a real-world provider. The conversion happens
+   * here, in this process: no credentials are held for the provider and no
+   * part of the file leaves the server.
+   */
+  app.post(
+    '/api/integrations/:id/import',
+    requireAuth,
+    upload.single('file'),
+    (req: AuthenticatedRequest, res) => {
+      const integration = getIntegration(String(req.params.id));
+      if (!integration) {
+        res.status(404).json({ error: 'Unknown integration' });
+        return;
+      }
+      const body = req.body as Record<string, unknown>;
+      let content = typeof body.content === 'string' ? body.content : '';
+      if (req.file) {
+        if (!isPlainText(req.file.buffer)) {
+          res.status(415).json({ error: 'Only UTF-8 text exports are supported' });
+          return;
+        }
+        content = req.file.buffer.toString('utf8');
+      }
+      const parsed = importSchema.safeParse({
+        content,
+        title: typeof body.title === 'string' && body.title.trim() ? body.title : undefined,
+        category: typeof body.category === 'string' && body.category ? body.category : undefined,
+      });
+      if (!parsed.success) {
+        res.status(400).json({ error: 'An export file or its contents are required' });
+        return;
+      }
+      let imported;
+      try {
+        imported = runIntegration(integration, parsed.data.content);
+      } catch (error) {
+        store.audit((req.user as UserRow).id, 'integration.rejected', `integration=${integration.id}`);
+        res.status(422).json({ error: (error as IntegrationError).message });
+        return;
+      }
+      const document = store.addDocument(
+        req.user as UserRow,
+        (parsed.data.title ?? imported.title).slice(0, 200),
+        (parsed.data.category ?? integration.defaultCategory) as Category,
+        imported.content,
+      );
+      store.audit((req.user as UserRow).id, 'integration.import', `integration=${integration.id}`);
+      res.status(201).json({ document, integration: integration.id });
     },
   );
 
