@@ -213,6 +213,24 @@ describe('bank statement CSV', () => {
     expect(() => convert('bank-csv', 'Date,Description,Amount\n')).toThrow('no transactions');
   });
 
+  it('reads a CRLF-terminated export', () => {
+    const csv = ['Date,Description,Amount', '2024-03-02,Salary,3200.00'].join('\r\n');
+    const result = convert('bank-csv', csv);
+    expect(result.content).toContain('On 2024-03-02, Salary: +3200.00.');
+  });
+
+  it('keeps a quoted description with an embedded newline as a single transaction', () => {
+    const csv = [
+      'Date,Description,Amount,Currency',
+      '2024-03-01,"ACME ENERGY\ndirect debit",-84.20,EUR',
+      '2024-03-02,Salary,3200.00,EUR',
+    ].join('\n');
+    const result = convert('bank-csv', csv);
+    expect(result.content).toContain('Statement with 2 transactions, 3200.00 EUR paid in and 84.20 EUR paid out.');
+    expect(result.content).toContain('On 2024-03-01, ACME ENERGY\ndirect debit: -84.20 EUR.');
+    expect(result.content).toContain('On 2024-03-02, Salary: +3200.00 EUR.');
+  });
+
   it('parses quoted CSV fields and amounts', () => {
     expect(parseCsvLine('a,"b,c","say ""hi""",')).toEqual(['a', 'b,c', 'say "hi"', '']);
     expect(parseCsvLine('a;b;c', ';')).toEqual(['a', 'b', 'c']);

@@ -243,6 +243,30 @@ export function detectDelimiter(header: string): string {
   );
 }
 
+/** Splits CSV text into logical records, keeping newlines inside quoted fields intact. */
+export function splitCsvRecords(text: string): string[] {
+  const records: string[] = [];
+  let record = '';
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"') {
+      quoted = !quoted;
+      record += character;
+    } else if (!quoted && (character === '\n' || character === '\r')) {
+      if (character === '\r' && text[index + 1] === '\n') {
+        index += 1;
+      }
+      records.push(record);
+      record = '';
+    } else {
+      record += character;
+    }
+  }
+  records.push(record);
+  return records;
+}
+
 /** Splits one CSV line, honouring quoted fields and doubled quotes. */
 export function parseCsvLine(line: string, delimiter = ','): string[] {
   const fields: string[] = [];
@@ -348,8 +372,7 @@ const bankCsvIntegration: Integration = {
   defaultCategory: 'finance',
   fileExtensions: ['.csv'],
   convert(raw) {
-    const lines = requireText(raw)
-      .split(/\r?\n/)
+    const lines = splitCsvRecords(requireText(raw))
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
     const delimiter = detectDelimiter(lines[0] as string);
