@@ -351,6 +351,8 @@ describe('email messages', () => {
   it('decodes encoded words using their declared charset', () => {
     expect(decodeEncodedWords('=?ISO-8859-1?Q?caf=E9?=')).toBe('café');
     expect(decodeEncodedWords('=?ISO-8859-1?B?Y2Fm6Q==?=')).toBe('café');
+    expect(decodeEncodedWords('=?ISO-8859-1?Q?caf\u00E9?=')).toBe('café');
+    expect(decodeQuotedPrintable('price: \u20AC5', 'ISO-8859-1')).toContain('price');
   });
 
   it('falls back to UTF-8 for a charset label Node does not recognise', () => {

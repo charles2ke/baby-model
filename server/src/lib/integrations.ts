@@ -432,9 +432,9 @@ function unfold(lines: string[]): string[] {
 }
 
 /** Decodes bytes using the named charset, falling back to UTF-8 for labels Node does not recognise. */
-function decodeBytes(bytes: number[], charset: string): string {
+function decodeBytes(bytes: Uint8Array | number[], charset: string): string {
   try {
-    return new TextDecoder(charset).decode(Uint8Array.from(bytes));
+    return new TextDecoder(charset).decode(bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes));
   } catch {
     return Buffer.from(bytes).toString('utf8');
   }
@@ -444,13 +444,14 @@ function decodeBytes(bytes: number[], charset: string): string {
 export function decodeEncodedWords(value: string): string {
   return value.replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g, (_match, charset, encoding, payload) =>
     encoding.toLowerCase() === 'b'
-      ? decodeBytes(Array.from(Buffer.from(payload, 'base64')), charset)
+      ? decodeBytes(Buffer.from(payload, 'base64'), charset)
       : decodeQuotedPrintable(String(payload).replace(/_/g, ' '), charset),
   );
 }
 
 export function decodeQuotedPrintable(text: string, charset = 'utf-8'): string {
   const joined = text.replace(/=\r?\n/g, '');
+  const isUtf8 = /^utf-?8$/i.test(charset);
   const bytes: number[] = [];
   for (let index = 0; index < joined.length; index += 1) {
     const character = joined[index] as string;
@@ -458,8 +459,15 @@ export function decodeQuotedPrintable(text: string, charset = 'utf-8'): string {
     if (character === '=' && /^[0-9a-fA-F]{2}$/.test(hex)) {
       bytes.push(Number.parseInt(hex, 16));
       index += 2;
-    } else {
+    } else if (isUtf8) {
       bytes.push(...Buffer.from(character, 'utf8'));
+    } else {
+      const code = character.codePointAt(0) as number;
+      if (code < 0x100) {
+        bytes.push(code);
+      } else {
+        bytes.push(...Buffer.from(character, 'utf8'));
+      }
     }
   }
   return decodeBytes(bytes, charset);
