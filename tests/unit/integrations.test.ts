@@ -275,12 +275,14 @@ describe('email messages', () => {
       'Content-Type: text/html',
       'Content-Transfer-Encoding: base64',
       '',
-      Buffer.from('<style>p{}</style><p>Board meeting&nbsp;&amp; review</p><br/>Ends &lt;soon&gt; &quot;ok&quot;').toString('base64'),
+      Buffer.from('<style>p{}</style><p>Board meeting&nbsp;&amp; review</p><br/>Ends &lt;soon&gt; &quot;ok&quot;, &amp;lt;not unescaped twice&amp;gt;, &#39;quoted&apos;').toString('base64'),
       '--x--',
     ].join('\n');
     const result = convert('email', eml);
     expect(result.content).toContain('Board meeting & review');
     expect(result.content).toContain('Ends <soon> "ok"');
+    expect(result.content).toContain('&lt;not unescaped twice&gt;');
+    expect(result.content).toContain("'quoted'");
   });
 
   it('uses the first part when no part declares a type', () => {

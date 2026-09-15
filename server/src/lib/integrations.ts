@@ -433,16 +433,24 @@ export function decodeQuotedPrintable(text: string): string {
   return Buffer.from(bytes).toString('utf8');
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+  nbsp: ' ',
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  '#39': "'",
+  apos: "'",
+};
+
 function stripHtml(html: string): string {
   return html
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<br\s*\/?>|<\/p>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
+    // Entities are resolved in a single pass so that an escaped entity such as
+    // `&amp;lt;` becomes the literal text `&lt;` rather than being unescaped twice.
+    .replace(/&(nbsp|amp|lt|gt|quot|#39|apos);/gi, (_entity, name: string) => HTML_ENTITIES[name.toLowerCase()] as string)
     .replace(/[ \t]+/g, ' ');
 }
 
