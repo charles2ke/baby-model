@@ -55,12 +55,25 @@ extraction all run locally inside the application process.
 ### A dark theme, or simply follow the theme of the device
 
 ![A dark theme, or simply follow the theme of the device](docs/screenshots/10-dark-theme.png)
+
+### Bank statements and health records imported straight from provider exports
+
+![Bank statements and health records imported straight from provider exports](docs/screenshots/11-imported-real-world-data.png)
+
+### Imported real-world data is answerable and cited like any other document
+
+![Imported real-world data is answerable and cited like any other document](docs/screenshots/12-answer-from-imported-statement.png)
 <!-- screenshots:end -->
 
 ## Features
 
 - **Private document vault** — upload or paste UTF-8 text documents, tagged as
   `health`, `finance`, `professional`, `education` or `other`.
+- **Real-world imports** — bring in the files the systems that hold your data
+  actually produce: HL7 FHIR health exports from a patient portal or Apple
+  Health, CSV statements from a bank or card issuer, `.eml` messages from a mail
+  client and `.ics` calendar exports. Each file is converted to readable text
+  locally, then stored encrypted like any other document.
 - **Grounded question answering** — TF-IDF retrieval over your own chunks plus
   extractive answering, with citations back to the document and section.
 - **One job per page** — asking a question, adding a document, browsing the vault
@@ -123,6 +136,7 @@ server/src/lib/
   db.ts              SQLite schema and hardened file permissions
   store.ts           Owner-scoped data access for users, sessions and documents
   text.ts            Tokenisation, sentence splitting and chunking
+  integrations.ts    Real-world connectors: FHIR, bank CSV, email, iCalendar
   model.ts           TF-IDF retrieval and extractive, cited answering
 tests/unit/          Vitest unit and API tests (100% coverage enforced)
 tests/e2e/           Playwright end-to-end tests that also produce the screenshots
@@ -140,9 +154,31 @@ tests/e2e/           Playwright end-to-end tests that also produce the screensho
 | `POST` | `/api/documents` | Add a document (JSON body or file upload) |
 | `GET` | `/api/documents/:id` | Read one of your documents |
 | `DELETE` | `/api/documents/:id` | Delete one of your documents |
+| `GET` | `/api/integrations` | List the real-world import connectors |
+| `POST` | `/api/integrations/:id/import` | Import a provider export as a document |
 | `POST` | `/api/ask` | Ask a question answered only from your documents |
 | `GET` | `/api/account/export` | Export everything stored about you |
 | `DELETE` | `/api/account` | Erase your account and all data |
+
+## Real-world integrations
+
+Integrations are **file-based and offline by design**: you export your data from
+the provider yourself and hand the file to your vault. The portal never stores a
+provider credential, never calls a provider API and never sends your documents
+anywhere, so connecting a new source cannot widen the blast radius of an account
+takeover at either end.
+
+| Connector | Typical source | File | Stored as |
+| --- | --- | --- | --- |
+| `fhir` | Patient portal, hospital record, Apple Health, Epic/Cerner export | `.json` FHIR R4 bundle | Observations, conditions, medications, allergies, immunisations, procedures and reports as plain sentences (`health`) |
+| `bank-csv` | Bank, credit card or payment account statement | `.csv` | One sentence per transaction plus a totals summary, with dates, descriptions, amounts, currencies and balances (`finance`) |
+| `email` | Gmail, Outlook, Apple Mail or any IMAP client | `.eml` | Subject, sender, recipients, date and the decoded text body (`professional`) |
+| `icalendar` | Google Calendar, Outlook, Apple Calendar, booking confirmations | `.ics` | One sentence per event with its start, end, location and notes (`professional`) |
+
+Pick the source on the **Add** page, upload the export (or paste it), and adjust
+the title and category if the suggested ones do not fit. Files that a connector
+cannot read are refused with an explanation instead of being stored, and the
+imported text is chunked, encrypted and cited exactly like a pasted document.
 
 ## Getting started
 

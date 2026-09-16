@@ -1,4 +1,4 @@
-const state = { csrfToken: '', email: '' };
+const state = { csrfToken: '', email: '', integrations: [] };
 
 const ROUTES = ['ask', 'add', 'documents', 'account'];
 const DEFAULT_ROUTE = 'ask';
@@ -140,6 +140,8 @@ function showSignedOut() {
   answer.hidden = true;
   $('question').value = '';
   $('document-list').replaceChildren();
+  state.integrations = [];
+  $('source').replaceChildren(new Option('Plain text or text file', 'text'));
   render();
 }
 
@@ -184,6 +186,46 @@ async function refreshDocuments() {
   }
 }
 
+/** Loads the real-world import sources offered by the server. */
+async function refreshIntegrations() {
+  const { integrations } = await api('/api/integrations');
+  state.integrations = integrations;
+  const select = $('source');
+  select.replaceChildren(new Option('Plain text or text file', 'text'));
+  for (const integration of integrations) {
+    const option = document.createElement('option');
+    option.value = integration.id;
+    option.textContent = integration.label;
+    select.append(option);
+  }
+  applySource();
+}
+
+/** Returns the integration currently selected on the Add page, if any. */
+function selectedIntegration() {
+  return state.integrations.find((integration) => integration.id === $('source').value);
+}
+
+/** Adapts the Add form to the selected source: hints, file filter, title. */
+function applySource() {
+  const integration = selectedIntegration();
+  $('source-hint').textContent = integration ? integration.description : '';
+  $('file-label').textContent = integration
+    ? `Upload the export file (${integration.fileExtensions.join(', ')})`
+    : '…or upload a UTF-8 text file';
+  $('file').setAttribute(
+    'accept',
+    integration ? integration.fileExtensions.join(',') : '.txt,.md,.csv,.json,text/*',
+  );
+  $('content-label').textContent = integration
+    ? '…or paste the contents of the export'
+    : 'Paste text';
+  $('title').required = !integration;
+  if (integration) {
+    $('category').value = integration.defaultCategory;
+  }
+}
+
 function renderAnswer(result) {
   const container = $('answer');
   container.replaceChildren();
@@ -212,6 +254,7 @@ async function handleAuth(action) {
   showSignedIn(session, DEFAULT_ROUTE);
   $('password').value = '';
   setStatus(action === 'register' ? 'Vault created.' : 'Signed in.');
+  await refreshIntegrations();
   await refreshDocuments();
 }
 
@@ -248,6 +291,7 @@ function wire() {
   $('upload-form').addEventListener('submit', (event) => {
     event.preventDefault();
     guard(async () => {
+      const integration = selectedIntegration();
       const form = new FormData();
       form.append('title', $('title').value);
       form.append('category', $('category').value);
@@ -256,13 +300,19 @@ function wire() {
       if (file) {
         form.append('file', file);
       }
-      await api('/api/documents', { method: 'POST', form });
+      const path = integration ? `/api/integrations/${integration.id}/import` : '/api/documents';
+      await api(path, { method: 'POST', form });
       $('upload-form').reset();
+      applySource();
       await refreshDocuments();
       navigate('documents');
-      setStatus('Document stored and encrypted.');
+      setStatus(
+        integration ? `Imported from ${integration.label} and encrypted.` : 'Document stored and encrypted.',
+      );
     });
   });
+
+  $('source').addEventListener('change', applySource);
 
   $('ask-form').addEventListener('submit', (event) => {
     event.preventDefault();
@@ -307,6 +357,7 @@ async function boot() {
   try {
     const session = await api('/api/auth/me');
     showSignedIn(session);
+    await refreshIntegrations();
     await refreshDocuments();
   } catch {
     showSignedOut();

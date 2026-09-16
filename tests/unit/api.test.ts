@@ -371,6 +371,87 @@ describe('api', () => {
     expect(answer.body.citations[0].documentTitle).toContain(REDACTED);
   });
 
+  describe('real-world integrations', () => {
+    it('lists the available connectors to signed-in users only', async () => {
+      const session = await register(app, 'connector@example.com');
+      const response = await authed(app, 'get', '/api/integrations', session).expect(200);
+      expect(response.body.integrations.map((integration: { id: string }) => integration.id)).toContain('fhir');
+      await request(app).get('/api/integrations').expect(401);
+    });
+
+    it('imports a FHIR export uploaded as a file', async () => {
+      const session = await register(app, 'fhir@example.com');
+      const bundle = JSON.stringify({
+        resourceType: 'Bundle',
+        entry: [
+          {
+            resource: {
+              resourceType: 'Observation',
+              code: { text: 'HDL cholesterol' },
+              valueQuantity: { value: 62, unit: 'mg/dL' },
+              effectiveDateTime: '2024-03-12',
+            },
+          },
+        ],
+      });
+      const response = await authed(app, 'post', '/api/integrations/fhir/import', session)
+        .attach('file', Buffer.from(bundle), 'export.json')
+        .expect(201);
+      expect(response.body.integration).toBe('fhir');
+      expect(response.body.document.category).toBe('health');
+      expect(response.body.document.title).toBe('Health records (FHIR export)');
+
+      const answer = await authed(app, 'post', '/api/ask', session)
+        .send({ question: 'What was my HDL cholesterol?' })
+        .expect(200);
+      expect(answer.body.answer).toContain('62 mg/dL');
+    });
+
+    it('imports pasted statement content with a chosen title and category', async () => {
+      const session = await register(app, 'bank@example.com');
+      const response = await authed(app, 'post', '/api/integrations/bank-csv/import', session)
+        .send({
+          content: 'Date,Description,Amount,Currency\n2024-03-02,Salary,3200.00,EUR',
+          title: 'March statement',
+          category: 'other',
+        })
+        .expect(201);
+      expect(response.body.document.title).toBe('March statement');
+      expect(response.body.document.category).toBe('other');
+    });
+
+    it('rejects unknown connectors, empty imports, binaries and unusable exports', async () => {
+      const session = await register(app, 'reject@example.com');
+      await authed(app, 'post', '/api/integrations/dropbox/import', session)
+        .send({ content: 'anything' })
+        .expect(404);
+      await authed(app, 'post', '/api/integrations/fhir/import', session).send({}).expect(400);
+      await authed(app, 'post', '/api/integrations/fhir/import', session)
+        .attach('file', Buffer.from([0x00, 0x01, 0x02]), 'export.json')
+        .expect(415);
+      const invalid = await authed(app, 'post', '/api/integrations/fhir/import', session)
+        .send({ content: 'not json at all' })
+        .expect(422);
+      expect(invalid.body.error).toContain('not valid JSON');
+    });
+
+    it('keeps imported documents private to the importing account', async () => {
+      const owner = await register(app, 'owner-import@example.com');
+      await authed(app, 'post', '/api/integrations/icalendar/import', owner)
+        .send({
+          content: 'BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Board meeting\nDTSTART:20240312T090000Z\nEND:VEVENT\nEND:VCALENDAR',
+        })
+        .expect(201);
+      const intruder = await register(app, 'intruder-import@example.com');
+      const documents = await authed(app, 'get', '/api/documents', intruder).expect(200);
+      expect(documents.body.documents).toEqual([]);
+      const answer = await authed(app, 'post', '/api/ask', intruder)
+        .send({ question: 'When is the board meeting?' })
+        .expect(200);
+      expect(answer.body.answer).toContain(NO_ANSWER);
+    });
+  });
+
   it('rate limits bursts of questions', async () => {
     process.env.ASK_RATE_LIMIT = '1';
     const limitedApp = createApp({ config: testConfig(), db: openDatabase(':memory:') });

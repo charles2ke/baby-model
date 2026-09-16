@@ -98,10 +98,19 @@
 
       <section id="add-page" class="page card" hidden>
         <h1 tabindex="-1">Add a document</h1>
-        <p class="page-intro">Paste text or upload a UTF-8 text file to teach your private model.</p>
+        <p class="page-intro">
+          Paste text, upload a UTF-8 text file, or import an export from your bank, patient
+          portal, mail client or calendar.
+        </p>
         <form id="upload-form">
+          <label for="source">Source</label>
+          <select id="source" name="source">
+            <option value="text">Plain text or text file</option>
+          </select>
+          <p id="source-hint" class="hint"></p>
           <label for="title">Title</label>
           <input id="title" name="title" type="text" maxlength="200" required />
+
           <label for="category">Category</label>
           <select id="category" name="category">
             <option value="health">Health</option>
@@ -110,9 +119,9 @@
             <option value="education">Education</option>
             <option value="other">Other</option>
           </select>
-          <label for="content">Paste text</label>
+          <label for="content" id="content-label">Paste text</label>
           <textarea id="content" name="content" rows="6"></textarea>
-          <label for="file">…or upload a UTF-8 text file</label>
+          <label for="file" id="file-label">…or upload a UTF-8 text file</label>
           <input id="file" name="file" type="file" accept=".txt,.md,.csv,.json,text/*" />
           <div class="actions"><button type="submit">Save securely</button></div>
         </form>
