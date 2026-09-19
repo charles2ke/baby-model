@@ -70,8 +70,8 @@ describe('skills', () => {
   });
 
   it('pulls the figures out of the sentences that carry them', () => {
-    expect(skill('figures').apply(['Rent was $1,240.50 in May. Nothing here.'])).toBe(
-      '• $1,240.50 — Rent was $1,240.50 in May.',
+    expect(skill('figures').apply(['Rent was $1,240.50 in May. Rate was 3.4 percent.'])).toBe(
+      '• $1,240.50 — Rent was $1,240.50 in May.\n• 3.4 percent — Rate was 3.4 percent.',
     );
   });
 

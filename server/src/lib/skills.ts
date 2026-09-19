@@ -34,8 +34,8 @@ const DATE_PATTERN = new RegExp(
   'i',
 );
 
-/** Amounts as they appear in statements: `$1,240.50`, `1240.50 USD`, `12%`. */
-const AMOUNT_PATTERN = /[$£€]\s?-?\d[\d,]*(?:\.\d+)?|-?\d[\d,]*(?:\.\d+)?\s?(?:usd|eur|gbp|%)/gi;
+/** Amounts as they appear in statements: `$1,240.50`, `1240.50 USD`, `12%`, `12 percent`. */
+const AMOUNT_PATTERN = /[$£€]\s?-?\d[\d,]*(?:\.\d+)?|-?\d[\d,]*(?:\.\d+)?\s?(?:usd|eur|gbp|%|percent)/gi;
 
 function sentencesOf(excerpts: string[]): string[] {
   return excerpts.flatMap((excerpt) => splitSentences(excerpt));

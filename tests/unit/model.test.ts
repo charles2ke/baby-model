@@ -42,7 +42,10 @@ describe('model', () => {
   it('answers with grounded excerpts and citations', () => {
     const result = answerQuestion('what is my mortgage rate', corpus);
     expect(result.grounded).toBe(true);
-    expect(result.answer).toContain('3.4 percent');
+    expect(result.skill).toEqual({ id: 'figures', name: 'Pull out the figures' });
+    expect(result.answer).toBe(
+      '• 3.4 percent — The mortgage rate on the apartment is 3.4 percent fixed.',
+    );
     expect(result.citations[0].documentTitle).toBe('Mortgage');
     expect(result.citations[0].category).toBe('finance');
   });
