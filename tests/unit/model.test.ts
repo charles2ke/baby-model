@@ -83,6 +83,13 @@ describe('model', () => {
     expect(result.citations).toHaveLength(2);
   });
 
+  it('applies the timeline skill for when questions', () => {
+    const dated = [chunk(1, 'Tetanus booster given in 2021.')];
+    const result = answerQuestion('When did my tetanus booster happen?', dated);
+    expect(result.skill).toEqual({ id: 'timeline', name: 'Build a timeline' });
+    expect(result.answer).toBe('• Tetanus booster given in 2021.');
+  });
+
   it('keeps the plain answer when the matched skill has nothing to add', () => {
     const result = answerQuestion('what is the history of my mortgage rate', corpus);
     expect(result.skill).toBeUndefined();

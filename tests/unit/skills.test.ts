@@ -23,6 +23,7 @@ describe('skills', () => {
   it('routes a question to the skill it uses the most triggers of', () => {
     expect(selectSkill('give me a summary of my records')?.id).toBe('summarise');
     expect(selectSkill('what is the history of my events')?.id).toBe('timeline');
+    expect(selectSkill('when did my tetanus booster happen')?.id).toBe('timeline');
     expect(selectSkill('how much was the total amount')?.id).toBe('figures');
   });
 
@@ -47,9 +48,27 @@ describe('skills', () => {
   });
 
   it('orders dated sentences oldest first', () => {
-    const excerpts = ['Graduated in 2019.', 'Booster given on 2015-04-02.', 'Signed in March 2021.'];
+    const excerpts = [
+      'Event in 2022.',
+      'Event on 12/06/2021.',
+      'Event on 12/05/21.',
+      'Event on March 5 2021.',
+      'Event in March 2021.',
+      'Event in January 2021.',
+      'Booster given on 2015-04-02.',
+      'Event on 12/05/99.',
+      'Graduated in 2019.',
+    ];
     expect(skill('timeline').apply(excerpts)).toBe(
-      '• Booster given on 2015-04-02.\n• Graduated in 2019.\n• Signed in March 2021.',
+      '• Event on 12/05/99.\n'
+      + '• Booster given on 2015-04-02.\n'
+      + '• Graduated in 2019.\n'
+      + '• Event in January 2021.\n'
+      + '• Event in March 2021.\n'
+      + '• Event on March 5 2021.\n'
+      + '• Event on 12/05/21.\n'
+      + '• Event on 12/06/2021.\n'
+      + '• Event in 2022.',
     );
   });
 
@@ -60,8 +79,8 @@ describe('skills', () => {
   });
 
   it('puts sentences without a year last', () => {
-    expect(skill('timeline').apply(['Seen on 12/05/21.', 'Seen in 2019.'])).toBe(
-      '• Seen in 2019.\n• Seen on 12/05/21.',
+    expect(skill('timeline').apply(['Seen in March.', 'Seen in 2019.'])).toBe(
+      '• Seen in 2019.\n• Seen in March.',
     );
   });
 

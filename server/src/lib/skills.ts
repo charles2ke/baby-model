@@ -30,7 +30,7 @@ const MONTHS = [
 ];
 
 const DATE_PATTERN = new RegExp(
-  `\\b(?:\\d{4}-\\d{2}-\\d{2}|\\d{1,2}/\\d{1,2}/\\d{2,4}|(?:${MONTHS.join('|')})\\b[^.!?]{0,12}?\\d{0,4}|\\d{4})\\b`,
+  `\\b(?:\\d{4}-\\d{2}-\\d{2}|\\d{1,2}/\\d{1,2}/\\d{2,4}|(?:${MONTHS.join('|')})\\b(?:[^.!?]{0,12}?\\b\\d{4})?|\\d{4})\\b`,
   'i',
 );
 
@@ -41,10 +41,39 @@ function sentencesOf(excerpts: string[]): string[] {
   return excerpts.flatMap((excerpt) => splitSentences(excerpt));
 }
 
-/** Sorts by the first four-digit year found, keeping the original order otherwise. */
-function yearOf(sentence: string): number {
-  const match = /\b(19|20)\d{2}\b/.exec(sentence);
-  return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
+function dateValue(year: number, month = 0, day = 0): number {
+  if (!Number.isFinite(year)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return year * 10000 + month * 100 + day;
+}
+
+function normaliseYear(year: number): number {
+  if (year < 100) {
+    return year >= 70 ? 1900 + year : 2000 + year;
+  }
+  return year;
+}
+
+/** Sorts by the matched date; numeric dates are interpreted as month/day/year. */
+function dateSortValue(date: string): number {
+  const value = date.toLowerCase();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (iso) {
+    return dateValue(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  }
+  const numeric = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(value);
+  if (numeric) {
+    return dateValue(normaliseYear(Number(numeric[3])), Number(numeric[1]), Number(numeric[2]));
+  }
+  const monthIndex = MONTHS.findIndex((month) => value.startsWith(month));
+  if (monthIndex >= 0) {
+    const numbers = value.match(/\d{1,4}/g)?.map(Number) ?? [];
+    const year = numbers.find((number) => number > 31 || String(number).length === 4);
+    const day = numbers.find((number) => number !== year && number >= 1 && number <= 31) ?? 0;
+    return dateValue(year ?? Number.POSITIVE_INFINITY, monthIndex + 1, day);
+  }
+  return dateValue(Number(value));
 }
 
 export const SKILLS: Skill[] = [
@@ -67,15 +96,17 @@ export const SKILLS: Skill[] = [
     name: 'Build a timeline',
     description:
       'Use when the question asks when something happened, or for a history, a timeline or the order of events, to list the dated sentences oldest first.',
-    triggers: ['timeline', 'history', 'chronology', 'chronological', 'order', 'events', 'since'],
+    triggers: ['when', 'timeline', 'history', 'chronology', 'chronological', 'order', 'events', 'since'],
     apply(excerpts) {
-      const dated = sentencesOf(excerpts).filter((sentence) => DATE_PATTERN.test(sentence));
+      const dated = sentencesOf(excerpts)
+        .map((sentence) => ({ sentence, date: DATE_PATTERN.exec(sentence)?.[0] }))
+        .filter((entry): entry is { sentence: string; date: string } => entry.date !== undefined);
       if (dated.length === 0) {
         return undefined;
       }
       return dated
-        .map((sentence, index) => ({ sentence, index }))
-        .sort((a, b) => yearOf(a.sentence) - yearOf(b.sentence) || a.index - b.index)
+        .map((entry, index) => ({ ...entry, index }))
+        .sort((a, b) => dateSortValue(a.date) - dateSortValue(b.date) || a.index - b.index)
         .map(({ sentence }) => `• ${sentence}`)
         .join('\n');
     },
@@ -109,6 +140,9 @@ export function listSkills(): SkillSummary[] {
  */
 export function selectSkill(question: string, skills: Skill[] = SKILLS): Skill | undefined {
   const asked = new Set(tokenize(question));
+  if (/\bwhen\b/i.test(question.normalize('NFKC'))) {
+    asked.add('when');
+  }
   let best: { skill: Skill; matches: number } | undefined;
   for (const skill of skills) {
     const matches = skill.triggers.filter((trigger) => asked.has(trigger)).length;
