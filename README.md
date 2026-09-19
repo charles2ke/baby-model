@@ -63,6 +63,10 @@ extraction all run locally inside the application process.
 ### Imported real-world data is answerable and cited like any other document
 
 ![Imported real-world data is answerable and cited like any other document](docs/screenshots/12-answer-from-imported-statement.png)
+
+### Skills reshape a grounded answer into a timeline, a summary or a list of figures
+
+![Skills reshape a grounded answer into a timeline, a summary or a list of figures](docs/screenshots/13-skill-timeline.png)
 <!-- screenshots:end -->
 
 ## Features

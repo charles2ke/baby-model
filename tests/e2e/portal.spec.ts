@@ -239,3 +239,22 @@ test('real-world exports are imported and become answerable', async ({ page }) =
   await page.getByRole('button', { name: 'Save securely' }).click();
   await expect(page.locator('#status')).toContainText('not valid JSON');
 });
+
+test('a skill reshapes the answer without leaving the documents', async ({ page }) => {
+  await signUp(page, uniqueEmail('skills'));
+
+  await addDocument(
+    page,
+    'Vaccination record',
+    'health',
+    'Tetanus booster given in 2021. Tetanus vaccination first given in 2011. Tetanus booster due again in 2031.',
+  );
+
+  await openTab(page, 'Ask');
+  await page.getByLabel('Question').fill('What is the history of my tetanus booster?');
+  await page.getByRole('button', { name: 'Ask' }).click();
+  await expect(page.locator('#answer')).toContainText('Skill applied: Build a timeline');
+  await expect(page.locator('#answer p').first()).toContainText('• Tetanus vaccination first given in 2011.');
+  await expect(page.locator('.citations')).toContainText('Vaccination record');
+  await page.screenshot({ path: `${SHOTS}/13-skill-timeline.png`, fullPage: true });
+});
