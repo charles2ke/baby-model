@@ -67,6 +67,25 @@ describe('model', () => {
     expect(result.citations).toHaveLength(2);
   });
 
+  it('applies the matching skill to the grounded excerpts', () => {
+    const dated = [
+      chunk(1, 'Tetanus booster given in 2021.'),
+      chunk(2, 'Tetanus booster first given in 2011.'),
+    ];
+    const result = answerQuestion('what is the history of my tetanus booster', dated);
+    expect(result.skill).toEqual({ id: 'timeline', name: 'Build a timeline' });
+    expect(result.answer).toBe(
+      '• Tetanus booster first given in 2011.\n• Tetanus booster given in 2021.',
+    );
+    expect(result.citations).toHaveLength(2);
+  });
+
+  it('keeps the plain answer when the matched skill has nothing to add', () => {
+    const result = answerQuestion('what is the history of my mortgage rate', corpus);
+    expect(result.skill).toBeUndefined();
+    expect(result.answer).toContain('3.4 percent');
+  });
+
   it('falls back to the chunk start when no sentence matches', () => {
     expect(extractRelevantSentences('unrelated terms', 'First line. Second line.')).toBe(
       'First line. Second line.',

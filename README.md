@@ -76,6 +76,10 @@ extraction all run locally inside the application process.
   locally, then stored encrypted like any other document.
 - **Grounded question answering** — TF-IDF retrieval over your own chunks plus
   extractive answering, with citations back to the document and section.
+- **Skills** — reusable, Claude-style skills (a name, a description of when to
+  use it and a deterministic procedure) reshape a grounded answer into a
+  summary, a timeline or a list of figures when the question calls for it,
+  without ever adding anything your documents do not say.
 - **One job per page** — asking a question, adding a document, browsing the vault
   and managing the account each get their own page, reached from a tab bar.
 - **Mobile first** — a thumb-friendly bottom tab bar, full-width controls, large
@@ -137,6 +141,7 @@ server/src/lib/
   store.ts           Owner-scoped data access for users, sessions and documents
   text.ts            Tokenisation, sentence splitting and chunking
   integrations.ts    Real-world connectors: FHIR, bank CSV, email, iCalendar
+  skills.ts          Claude-style skills that reshape grounded answers
   model.ts           TF-IDF retrieval and extractive, cited answering
 tests/unit/          Vitest unit and API tests (100% coverage enforced)
 tests/e2e/           Playwright end-to-end tests that also produce the screenshots
@@ -156,9 +161,31 @@ tests/e2e/           Playwright end-to-end tests that also produce the screensho
 | `DELETE` | `/api/documents/:id` | Delete one of your documents |
 | `GET` | `/api/integrations` | List the real-world import connectors |
 | `POST` | `/api/integrations/:id/import` | Import a provider export as a document |
+| `GET` | `/api/skills` | List the skills the model can apply |
 | `POST` | `/api/ask` | Ask a question answered only from your documents |
 | `GET` | `/api/account/export` | Export everything stored about you |
 | `DELETE` | `/api/account` | Erase your account and all data |
+
+## Skills
+
+Skills follow the shape of [Claude's Agent Skills](https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview):
+each one declares a **name**, a **description** that says when it should be used,
+and the procedure itself. Here the procedure is ordinary code running in this
+process, and it is only ever handed sentences that were already extracted from
+your own documents — so a skill can change how an answer is presented, never
+what it claims.
+
+| Skill | Use when the question asks for | Result |
+| --- | --- | --- |
+| `summarise` | a summary, an overview, a recap or the key points | the matching sentences as bullet points |
+| `timeline` | when something happened, a history or the order of events | the dated sentences, oldest first |
+| `figures` | amounts, balances, rates, totals or how much something was | the sentences that carry a figure, with the figures listed |
+
+The model picks at most one skill per question, by matching the words of the
+question against the skill triggers, and falls back to the plain extractive
+answer when no skill applies or the chosen skill has nothing to contribute. The
+answer payload names the skill that shaped it, and the portal shows it under the
+answer. Citations, refusals and owner scoping are unchanged.
 
 ## Real-world integrations
 

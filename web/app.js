@@ -234,6 +234,12 @@ function renderAnswer(result) {
   const paragraph = document.createElement('p');
   paragraph.textContent = result.answer;
   container.append(heading, paragraph);
+  if (result.skill) {
+    const skill = document.createElement('p');
+    skill.className = 'skill';
+    skill.textContent = `Skill applied: ${result.skill.name}`;
+    container.append(skill);
+  }
   if (result.citations.length > 0) {
     const list = document.createElement('ul');
     list.className = 'citations';

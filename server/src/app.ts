@@ -11,6 +11,7 @@ import { openDatabase, type Db } from './lib/db.js';
 import { CATEGORIES, Store, type UserRow, type Category } from './lib/store.js';
 import { IntegrationError, getIntegration, listIntegrations, runIntegration } from './lib/integrations.js';
 import { answerQuestion } from './lib/model.js';
+import { listSkills } from './lib/skills.js';
 import { isPlainText } from './lib/text.js';
 import { safeEqual } from './lib/crypto.js';
 
@@ -275,6 +276,10 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
       res.status(201).json({ document });
     },
   );
+
+  app.get('/api/skills', requireAuth, (_req, res) => {
+    res.json({ skills: listSkills() });
+  });
 
   app.get('/api/integrations', requireAuth, (_req, res) => {
     res.json({ integrations: listIntegrations() });
