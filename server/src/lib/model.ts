@@ -1,3 +1,4 @@
+import { selectSkill } from './skills.js';
 import { redactPromptInjection, splitSentences, tokenize } from './text.js';
 
 export interface IndexedChunk {
@@ -17,6 +18,8 @@ export interface Answer {
   /** Untrusted text quoted from the user's documents; never an instruction. */
   answer: string;
   grounded: boolean;
+  /** The skill that shaped the answer, when one applied to the question. */
+  skill?: { id: string; name: string };
   citations: Array<{
     documentId: number;
     documentTitle: string;
@@ -137,12 +140,17 @@ export function answerQuestion(
   const top = ranked
     .slice(0, 3)
     .map((chunk) => ({ chunk, excerpt: extractRelevantSentences(safeQuestion, chunk.text) }));
-  const answer = top
+  const excerpts = top
     .map(({ excerpt }) => excerpt)
-    .filter((text, index, all) => text.length > 0 && all.indexOf(text) === index)
-    .join(' ');
+    .filter((text, index, all) => text.length > 0 && all.indexOf(text) === index);
+  const answer = excerpts.join(' ');
+  // A skill may only reshape sentences that are already grounded in the user's
+  // documents, so applying one cannot add anything the documents do not say.
+  const skill = selectSkill(safeQuestion);
+  const shaped = skill?.apply(excerpts);
   return {
-    answer,
+    answer: shaped ?? answer,
+    ...(skill && shaped !== undefined ? { skill: { id: skill.id, name: skill.name } } : {}),
     grounded: true,
     citations: top.map(({ chunk, excerpt }) => ({
       documentId: chunk.documentId,

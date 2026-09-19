@@ -42,7 +42,10 @@ describe('model', () => {
   it('answers with grounded excerpts and citations', () => {
     const result = answerQuestion('what is my mortgage rate', corpus);
     expect(result.grounded).toBe(true);
-    expect(result.answer).toContain('3.4 percent');
+    expect(result.skill).toEqual({ id: 'figures', name: 'Pull out the figures' });
+    expect(result.answer).toBe(
+      '• 3.4 percent — The mortgage rate on the apartment is 3.4 percent fixed.',
+    );
     expect(result.citations[0].documentTitle).toBe('Mortgage');
     expect(result.citations[0].category).toBe('finance');
   });
@@ -65,6 +68,32 @@ describe('model', () => {
     const result = answerQuestion('tetanus booster', repeated);
     expect(result.answer).toBe('Vaccination record: tetanus booster given in 2021.');
     expect(result.citations).toHaveLength(2);
+  });
+
+  it('applies the matching skill to the grounded excerpts', () => {
+    const dated = [
+      chunk(1, 'Tetanus booster given in 2021.'),
+      chunk(2, 'Tetanus booster first given in 2011.'),
+    ];
+    const result = answerQuestion('what is the history of my tetanus booster', dated);
+    expect(result.skill).toEqual({ id: 'timeline', name: 'Build a timeline' });
+    expect(result.answer).toBe(
+      '• Tetanus booster first given in 2011.\n• Tetanus booster given in 2021.',
+    );
+    expect(result.citations).toHaveLength(2);
+  });
+
+  it('applies the timeline skill for when questions', () => {
+    const dated = [chunk(1, 'Tetanus booster given in 2021.')];
+    const result = answerQuestion('When did my tetanus booster happen?', dated);
+    expect(result.skill).toEqual({ id: 'timeline', name: 'Build a timeline' });
+    expect(result.answer).toBe('• Tetanus booster given in 2021.');
+  });
+
+  it('keeps the plain answer when the matched skill has nothing to add', () => {
+    const result = answerQuestion('what is the history of my mortgage rate', corpus);
+    expect(result.skill).toBeUndefined();
+    expect(result.answer).toContain('3.4 percent');
   });
 
   it('falls back to the chunk start when no sentence matches', () => {

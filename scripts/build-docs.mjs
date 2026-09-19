@@ -34,6 +34,8 @@ const CAPTIONS = {
     'Bank statements and health records imported straight from provider exports',
   '12-answer-from-imported-statement.png':
     'Imported real-world data is answerable and cited like any other document',
+  '13-skill-timeline.png':
+    'Skills reshape a grounded answer into a timeline, a summary or a list of figures',
 };
 
 function replaceSection(markdown, name, body) {

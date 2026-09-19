@@ -371,6 +371,31 @@ describe('api', () => {
     expect(answer.body.citations[0].documentTitle).toContain(REDACTED);
   });
 
+  describe('skills', () => {
+    it('lists the skills for a signed-in user only', async () => {
+      const session = await register(app, 'skills@example.com');
+      const response = await authed(app, 'get', '/api/skills', session).expect(200);
+      expect(response.body.skills.map((entry: { id: string }) => entry.id)).toContain('timeline');
+      await request(app).get('/api/skills').expect(401);
+    });
+
+    it('answers a skill question with the skill that shaped it', async () => {
+      const session = await register(app, 'skilled@example.com');
+      await authed(app, 'post', '/api/documents', session)
+        .send({
+          title: 'Statement',
+          category: 'finance',
+          content: 'Rent was $1,240.50 in May. Rent was $1,300.00 in June.',
+        })
+        .expect(201);
+      const response = await authed(app, 'post', '/api/ask', session)
+        .send({ question: 'how much was the rent amount' })
+        .expect(200);
+      expect(response.body.skill).toEqual({ id: 'figures', name: 'Pull out the figures' });
+      expect(response.body.answer).toContain('$1,240.50');
+    });
+  });
+
   describe('real-world integrations', () => {
     it('lists the available connectors to signed-in users only', async () => {
       const session = await register(app, 'connector@example.com');

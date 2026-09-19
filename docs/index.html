@@ -44,6 +44,8 @@ extraction all run locally inside the application process.</p>
 <p><img src="screenshots/11-imported-real-world-data.png" alt="Bank statements and health records imported straight from provider exports"></p>
 <h3>Imported real-world data is answerable and cited like any other document</h3>
 <p><img src="screenshots/12-answer-from-imported-statement.png" alt="Imported real-world data is answerable and cited like any other document"></p>
+<h3>Skills reshape a grounded answer into a timeline, a summary or a list of figures</h3>
+<p><img src="screenshots/13-skill-timeline.png" alt="Skills reshape a grounded answer into a timeline, a summary or a list of figures"></p>
 <!-- screenshots:end --><h2>Features</h2>
 <ul>
 <li><strong>Private document vault</strong> — upload or paste UTF-8 text documents, tagged as
@@ -55,6 +57,10 @@ client and <code>.ics</code> calendar exports. Each file is converted to readabl
 locally, then stored encrypted like any other document.</li>
 <li><strong>Grounded question answering</strong> — TF-IDF retrieval over your own chunks plus
 extractive answering, with citations back to the document and section.</li>
+<li><strong>Skills</strong> — reusable, Claude-style skills (a name, a description of when to
+use it and a deterministic procedure) reshape a grounded answer into a
+summary, a timeline or a list of figures when the question calls for it,
+without ever adding anything your documents do not say.</li>
 <li><strong>One job per page</strong> — asking a question, adding a document, browsing the vault
 and managing the account each get their own page, reached from a tab bar.</li>
 <li><strong>Mobile first</strong> — a thumb-friendly bottom tab bar, full-width controls, large
@@ -154,6 +160,7 @@ server/src/lib/
   store.ts           Owner-scoped data access for users, sessions and documents
   text.ts            Tokenisation, sentence splitting and chunking
   integrations.ts    Real-world connectors: FHIR, bank CSV, email, iCalendar
+  skills.ts          Claude-style skills that reshape grounded answers
   model.ts           TF-IDF retrieval and extractive, cited answering
 tests/unit/          Vitest unit and API tests (100% coverage enforced)
 tests/e2e/           Playwright end-to-end tests that also produce the screenshots
@@ -218,6 +225,11 @@ tests/e2e/           Playwright end-to-end tests that also produce the screensho
 <td>Import a provider export as a document</td>
 </tr>
 <tr>
+<td><code>GET</code></td>
+<td><code>/api/skills</code></td>
+<td>List the skills the model can apply</td>
+</tr>
+<tr>
 <td><code>POST</code></td>
 <td><code>/api/ask</code></td>
 <td>Ask a question answered only from your documents</td>
@@ -233,6 +245,42 @@ tests/e2e/           Playwright end-to-end tests that also produce the screensho
 <td>Erase your account and all data</td>
 </tr>
 </tbody></table>
+<h2>Skills</h2>
+<p>Skills follow the shape of <a href="https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview">Claude&#39;s Agent Skills</a>:
+each one declares a <strong>name</strong>, a <strong>description</strong> that says when it should be used,
+and the procedure itself. Here the procedure is ordinary code running in this
+process, and it is only ever handed sentences that were already extracted from
+your own documents — so a skill can change how an answer is presented, never
+what it claims.</p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Use when the question asks for</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>summarise</code></td>
+<td>a summary, an overview, a recap or the key points</td>
+<td>the matching sentences as bullet points</td>
+</tr>
+<tr>
+<td><code>timeline</code></td>
+<td>when something happened, a history or the order of events</td>
+<td>the dated sentences, oldest first</td>
+</tr>
+<tr>
+<td><code>figures</code></td>
+<td>amounts, balances, rates, totals or how much something was</td>
+<td>the sentences that carry a figure, with the figures listed</td>
+</tr>
+</tbody></table>
+<p>The model picks at most one skill per question, by matching the words of the
+question against the skill triggers, and falls back to the plain extractive
+answer when no skill applies or the chosen skill has nothing to contribute. The
+answer payload names the skill that shaped it, and the portal shows it under the
+answer. Citations, refusals and owner scoping are unchanged.</p>
 <h2>Real-world integrations</h2>
 <p>Integrations are <strong>file-based and offline by design</strong>: you export your data from
 the provider yourself and hand the file to your vault. The portal never stores a
