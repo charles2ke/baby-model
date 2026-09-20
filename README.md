@@ -2,6 +2,9 @@
 
 A model that only knows **your** data.
 
+[![CI](https://github.com/charles2ke/baby-model/actions/workflows/ci.yml/badge.svg)](https://github.com/charles2ke/baby-model/actions/workflows/ci.yml)
+[![Docs](https://github.com/charles2ke/baby-model/actions/workflows/docs.yml/badge.svg)](https://github.com/charles2ke/baby-model/actions/workflows/docs.yml)
+
 **Website: <https://charles2ke.github.io/baby-model/>**
 
 `baby-model` is a self-hosted portal that learns from the documents you give it —
@@ -12,6 +15,96 @@ do not contain the answer, the model says so instead of guessing.
 
 Nothing is sent to any third-party model provider: retrieval, ranking and answer
 extraction all run locally inside the application process.
+
+## Contents
+
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Security and privacy design](#security-and-privacy-design)
+- [Architecture](#architecture)
+- [Skills](#skills)
+- [Real-world integrations](#real-world-integrations)
+- [Configuration](#configuration)
+- [Testing](#testing)
+- [Documentation site](#documentation-site)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Quick start
+
+Requirements: Node.js 20 or newer (CI runs on Node 22) and npm.
+
+```bash
+git clone https://github.com/charles2ke/baby-model.git
+cd baby-model
+npm install
+npm run dev           # http://localhost:3000
+```
+
+Open <http://localhost:3000>, create an account, add a document on the **Add**
+page — paste some text or import a provider export — then ask a question about it
+on the **Ask** page. In development a master key is generated for you under
+`./data`; in production you must supply your own:
+
+```bash
+export MASTER_KEY=$(openssl rand -hex 32)   # store this in your secret manager
+export NODE_ENV=production
+npm run build && npm start
+```
+
+Everything is stored on the machine you run it on: a single SQLite file in
+`DATA_DIR`, with documents encrypted at rest. See
+[Configuration](#configuration) for the environment variables.
+
+## How it works
+
+1. **Add** — a document (pasted text, an uploaded UTF-8 file or a provider
+   export converted locally by an [integration](#real-world-integrations)) is
+   split into sentences and grouped into overlapping chunks.
+2. **Store** — document text and chunks are sealed with AES-256-GCM under a
+   per-user data key, which is itself wrapped with the server `MASTER_KEY`, and
+   written to SQLite alongside the owner's `user_id`.
+3. **Retrieve** — a question is tokenised and ranked against *only* that user's
+   chunks with TF-IDF cosine similarity.
+4. **Answer** — the best-matching sentences are returned verbatim with citations
+   back to the document and section; a [skill](#skills) may reshape them into a
+   summary, timeline or list of figures. If nothing relevant is found, the model
+   refuses instead of guessing.
+
+No step calls an external service, and no step can read a chunk that belongs to
+another account.
+
+## Features
+
+- **Private document vault** — upload or paste UTF-8 text documents, tagged as
+  `health`, `finance`, `professional`, `education` or `other`.
+- **Real-world imports** — bring in the files the systems that hold your data
+  actually produce: HL7 FHIR health exports from a patient portal or Apple
+  Health, CSV statements from a bank or card issuer, `.eml` messages from a mail
+  client and `.ics` calendar exports. Each file is converted to readable text
+  locally, then stored encrypted like any other document.
+- **Grounded question answering** — TF-IDF retrieval over your own chunks plus
+  extractive answering, with citations back to the document and section.
+- **Skills** — reusable, Claude-style skills (a name, a description of when to
+  use it and a deterministic procedure) reshape a grounded answer into a
+  summary, a timeline or a list of figures when the question calls for it,
+  without ever adding anything your documents do not say.
+- **One job per page** — asking a question, adding a document, browsing the vault
+  and managing the account each get their own page, reached from a tab bar.
+- **Mobile first** — a thumb-friendly bottom tab bar, full-width controls, large
+  tap targets and safe-area padding on phones; the same tabs move to the top on
+  larger screens.
+- **Light and dark themes** — a switch in the header follows the device theme by
+  default and can be pinned to light or dark; the choice is remembered locally
+  and applied before the first paint.
+- **Explicit refusals** — if nothing relevant is found, the model answers
+  “I can only answer from your own documents…”, never inventing facts.
+- **Strict isolation** — every query and document lookup is scoped by the owner's
+  user id, so one account can never read another account's data.
+- **Data rights built in** — one-click export (portability) and irreversible
+  account erasure (right to be forgotten).
 
 ## Screenshots
 
@@ -68,36 +161,6 @@ extraction all run locally inside the application process.
 
 ![Skills reshape a grounded answer into a timeline, a summary or a list of figures](docs/screenshots/13-skill-timeline.png)
 <!-- screenshots:end -->
-
-## Features
-
-- **Private document vault** — upload or paste UTF-8 text documents, tagged as
-  `health`, `finance`, `professional`, `education` or `other`.
-- **Real-world imports** — bring in the files the systems that hold your data
-  actually produce: HL7 FHIR health exports from a patient portal or Apple
-  Health, CSV statements from a bank or card issuer, `.eml` messages from a mail
-  client and `.ics` calendar exports. Each file is converted to readable text
-  locally, then stored encrypted like any other document.
-- **Grounded question answering** — TF-IDF retrieval over your own chunks plus
-  extractive answering, with citations back to the document and section.
-- **Skills** — reusable, Claude-style skills (a name, a description of when to
-  use it and a deterministic procedure) reshape a grounded answer into a
-  summary, a timeline or a list of figures when the question calls for it,
-  without ever adding anything your documents do not say.
-- **One job per page** — asking a question, adding a document, browsing the vault
-  and managing the account each get their own page, reached from a tab bar.
-- **Mobile first** — a thumb-friendly bottom tab bar, full-width controls, large
-  tap targets and safe-area padding on phones; the same tabs move to the top on
-  larger screens.
-- **Light and dark themes** — a switch in the header follows the device theme by
-  default and can be pinned to light or dark; the choice is remembered locally
-  and applied before the first paint.
-- **Explicit refusals** — if nothing relevant is found, the model answers
-  “I can only answer from your own documents…”, never inventing facts.
-- **Strict isolation** — every query and document lookup is scoped by the owner's
-  user id, so one account can never read another account's data.
-- **Data rights built in** — one-click export (portability) and irreversible
-  account erasure (right to be forgotten).
 
 ## Security and privacy design
 
@@ -211,22 +274,7 @@ the title and category if the suggested ones do not fit. Files that a connector
 cannot read are refused with an explanation instead of being stored, and the
 imported text is chunked, encrypted and cited exactly like a pasted document.
 
-## Getting started
-
-```bash
-npm install
-npm run dev           # http://localhost:3000
-```
-
-Production:
-
-```bash
-export MASTER_KEY=$(openssl rand -hex 32)   # store this in your secret manager
-export NODE_ENV=production
-npm run build && npm start
-```
-
-### Configuration
+## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -245,15 +293,13 @@ npm run test:coverage   # unit + API tests, 100% coverage thresholds
 npm run test:e2e        # Playwright end-to-end tests and screenshots
 ```
 
+The end-to-end run also regenerates the screenshots in `docs/screenshots/`.
+Playwright needs its browser once: `npx playwright install --with-deps chromium`.
+
 ### Coverage
 
 <!-- coverage:start -->
-| Metric | Coverage |
-| --- | --- |
-| statements | 100% |
-| branches | 100% |
-| functions | 100% |
-| lines | 100% |
+_Run `npm run test:coverage` to generate the coverage summary._
 <!-- coverage:end -->
 
 ## Documentation site
@@ -261,6 +307,23 @@ npm run test:e2e        # Playwright end-to-end tests and screenshots
 `npm run docs:build` refreshes the screenshot gallery and coverage table in this
 README and regenerates `docs/index.html`, which CI publishes to GitHub Pages at
 <https://charles2ke.github.io/baby-model/>.
+
+## Contributing
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Start the server with reload on <http://localhost:3000> |
+| `npm run typecheck` | TypeScript check without emitting |
+| `npm run build` / `npm start` | Compile to `dist/` and run the compiled server |
+| `npm test` / `npm run test:coverage` | Vitest unit and API tests |
+| `npm run test:e2e` | Playwright end-to-end tests and screenshots |
+| `npm run docs:build` | Refresh the generated README sections and `docs/index.html` |
+
+Before opening a pull request, run `npm run typecheck`, `npm run test:coverage`
+and `npm run test:e2e`; CI runs the same steps. The screenshot gallery and the
+coverage table above are generated — edit only the text outside the
+`<!-- screenshots -->` and `<!-- coverage -->` markers. Security issues should
+follow [SECURITY.md](SECURITY.md) rather than a public issue.
 
 ## License
 

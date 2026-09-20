@@ -10,6 +10,8 @@
     <main class="prose">
 <h1>baby-model</h1>
 <p>A model that only knows <strong>your</strong> data.</p>
+<p><a href="https://github.com/charles2ke/baby-model/actions/workflows/ci.yml"><img src="https://github.com/charles2ke/baby-model/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+<a href="https://github.com/charles2ke/baby-model/actions/workflows/docs.yml"><img src="https://github.com/charles2ke/baby-model/actions/workflows/docs.yml/badge.svg" alt="Docs"></a></p>
 <p><strong>Website: <a href="https://charles2ke.github.io/baby-model/">https://charles2ke.github.io/baby-model/</a></strong></p>
 <p><code>baby-model</code> is a self-hosted portal that learns from the documents you give it —
 health records, finance statements, professional paperwork, education certificates
@@ -18,35 +20,58 @@ answer is extracted verbatim from your own files and cited; when your documents
 do not contain the answer, the model says so instead of guessing.</p>
 <p>Nothing is sent to any third-party model provider: retrieval, ranking and answer
 extraction all run locally inside the application process.</p>
-<h2>Screenshots</h2>
-<!-- screenshots:start -->
-<h3>Sign in or create a private, encrypted vault</h3>
-<p><img src="screenshots/01-sign-in.png" alt="Sign in or create a private, encrypted vault"></p>
-<h3>Health, finance, professional and education documents stored encrypted</h3>
-<p><img src="screenshots/02-documents.png" alt="Health, finance, professional and education documents stored encrypted"></p>
-<h3>Answers are extracted from your documents and always cited</h3>
-<p><img src="screenshots/03-grounded-answer.png" alt="Answers are extracted from your documents and always cited"></p>
-<h3>Questions your documents cannot answer are refused instead of guessed</h3>
-<p><img src="screenshots/04-refuses-outside-knowledge.png" alt="Questions your documents cannot answer are refused instead of guessed"></p>
-<h3>A second account can neither see nor query another user documents</h3>
-<p><img src="screenshots/05-isolated-accounts.png" alt="A second account can neither see nor query another user documents"></p>
-<h3>One click erases the account and every stored document</h3>
-<p><img src="screenshots/06-account-erased.png" alt="One click erases the account and every stored document"></p>
-<h3>Asking a question is a page of its own and the primary action on mobile</h3>
-<p><img src="screenshots/07-mobile-ask.png" alt="Asking a question is a page of its own and the primary action on mobile"></p>
-<h3>Every page does one thing, with a thumb-friendly tab bar on small screens</h3>
-<p><img src="screenshots/08-mobile-documents.png" alt="Every page does one thing, with a thumb-friendly tab bar on small screens"></p>
-<h3>A light theme for bright rooms, remembered across visits</h3>
-<p><img src="screenshots/09-light-theme.png" alt="A light theme for bright rooms, remembered across visits"></p>
-<h3>A dark theme, or simply follow the theme of the device</h3>
-<p><img src="screenshots/10-dark-theme.png" alt="A dark theme, or simply follow the theme of the device"></p>
-<h3>Bank statements and health records imported straight from provider exports</h3>
-<p><img src="screenshots/11-imported-real-world-data.png" alt="Bank statements and health records imported straight from provider exports"></p>
-<h3>Imported real-world data is answerable and cited like any other document</h3>
-<p><img src="screenshots/12-answer-from-imported-statement.png" alt="Imported real-world data is answerable and cited like any other document"></p>
-<h3>Skills reshape a grounded answer into a timeline, a summary or a list of figures</h3>
-<p><img src="screenshots/13-skill-timeline.png" alt="Skills reshape a grounded answer into a timeline, a summary or a list of figures"></p>
-<!-- screenshots:end --><h2>Features</h2>
+<h2>Contents</h2>
+<ul>
+<li><a href="#quick-start">Quick start</a></li>
+<li><a href="#how-it-works">How it works</a></li>
+<li><a href="#features">Features</a></li>
+<li><a href="#screenshots">Screenshots</a></li>
+<li><a href="#security-and-privacy-design">Security and privacy design</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#skills">Skills</a></li>
+<li><a href="#real-world-integrations">Real-world integrations</a></li>
+<li><a href="#configuration">Configuration</a></li>
+<li><a href="#testing">Testing</a></li>
+<li><a href="#documentation-site">Documentation site</a></li>
+<li><a href="#contributing">Contributing</a></li>
+<li><a href="#license">License</a></li>
+</ul>
+<h2>Quick start</h2>
+<p>Requirements: Node.js 20 or newer (CI runs on Node 22) and npm.</p>
+<pre><code class="language-bash">git clone https://github.com/charles2ke/baby-model.git
+cd baby-model
+npm install
+npm run dev           # http://localhost:3000
+</code></pre>
+<p>Open <a href="http://localhost:3000">http://localhost:3000</a>, create an account, add a document on the <strong>Add</strong>
+page — paste some text or import a provider export — then ask a question about it
+on the <strong>Ask</strong> page. In development a master key is generated for you under
+<code>./data</code>; in production you must supply your own:</p>
+<pre><code class="language-bash">export MASTER_KEY=$(openssl rand -hex 32)   # store this in your secret manager
+export NODE_ENV=production
+npm run build &amp;&amp; npm start
+</code></pre>
+<p>Everything is stored on the machine you run it on: a single SQLite file in
+<code>DATA_DIR</code>, with documents encrypted at rest. See
+<a href="#configuration">Configuration</a> for the environment variables.</p>
+<h2>How it works</h2>
+<ol>
+<li><strong>Add</strong> — a document (pasted text, an uploaded UTF-8 file or a provider
+export converted locally by an <a href="#real-world-integrations">integration</a>) is
+split into sentences and grouped into overlapping chunks.</li>
+<li><strong>Store</strong> — document text and chunks are sealed with AES-256-GCM under a
+per-user data key, which is itself wrapped with the server <code>MASTER_KEY</code>, and
+written to SQLite alongside the owner&#39;s <code>user_id</code>.</li>
+<li><strong>Retrieve</strong> — a question is tokenised and ranked against <em>only</em> that user&#39;s
+chunks with TF-IDF cosine similarity.</li>
+<li><strong>Answer</strong> — the best-matching sentences are returned verbatim with citations
+back to the document and section; a <a href="#skills">skill</a> may reshape them into a
+summary, timeline or list of figures. If nothing relevant is found, the model
+refuses instead of guessing.</li>
+</ol>
+<p>No step calls an external service, and no step can read a chunk that belongs to
+another account.</p>
+<h2>Features</h2>
 <ul>
 <li><strong>Private document vault</strong> — upload or paste UTF-8 text documents, tagged as
 <code>health</code>, <code>finance</code>, <code>professional</code>, <code>education</code> or <code>other</code>.</li>
@@ -76,7 +101,35 @@ user id, so one account can never read another account&#39;s data.</li>
 <li><strong>Data rights built in</strong> — one-click export (portability) and irreversible
 account erasure (right to be forgotten).</li>
 </ul>
-<h2>Security and privacy design</h2>
+<h2>Screenshots</h2>
+<!-- screenshots:start -->
+<h3>Sign in or create a private, encrypted vault</h3>
+<p><img src="screenshots/01-sign-in.png" alt="Sign in or create a private, encrypted vault"></p>
+<h3>Health, finance, professional and education documents stored encrypted</h3>
+<p><img src="screenshots/02-documents.png" alt="Health, finance, professional and education documents stored encrypted"></p>
+<h3>Answers are extracted from your documents and always cited</h3>
+<p><img src="screenshots/03-grounded-answer.png" alt="Answers are extracted from your documents and always cited"></p>
+<h3>Questions your documents cannot answer are refused instead of guessed</h3>
+<p><img src="screenshots/04-refuses-outside-knowledge.png" alt="Questions your documents cannot answer are refused instead of guessed"></p>
+<h3>A second account can neither see nor query another user documents</h3>
+<p><img src="screenshots/05-isolated-accounts.png" alt="A second account can neither see nor query another user documents"></p>
+<h3>One click erases the account and every stored document</h3>
+<p><img src="screenshots/06-account-erased.png" alt="One click erases the account and every stored document"></p>
+<h3>Asking a question is a page of its own and the primary action on mobile</h3>
+<p><img src="screenshots/07-mobile-ask.png" alt="Asking a question is a page of its own and the primary action on mobile"></p>
+<h3>Every page does one thing, with a thumb-friendly tab bar on small screens</h3>
+<p><img src="screenshots/08-mobile-documents.png" alt="Every page does one thing, with a thumb-friendly tab bar on small screens"></p>
+<h3>A light theme for bright rooms, remembered across visits</h3>
+<p><img src="screenshots/09-light-theme.png" alt="A light theme for bright rooms, remembered across visits"></p>
+<h3>A dark theme, or simply follow the theme of the device</h3>
+<p><img src="screenshots/10-dark-theme.png" alt="A dark theme, or simply follow the theme of the device"></p>
+<h3>Bank statements and health records imported straight from provider exports</h3>
+<p><img src="screenshots/11-imported-real-world-data.png" alt="Bank statements and health records imported straight from provider exports"></p>
+<h3>Imported real-world data is answerable and cited like any other document</h3>
+<p><img src="screenshots/12-answer-from-imported-statement.png" alt="Imported real-world data is answerable and cited like any other document"></p>
+<h3>Skills reshape a grounded answer into a timeline, a summary or a list of figures</h3>
+<p><img src="screenshots/13-skill-timeline.png" alt="Skills reshape a grounded answer into a timeline, a summary or a list of figures"></p>
+<!-- screenshots:end --><h2>Security and privacy design</h2>
 <table>
 <thead>
 <tr>
@@ -325,16 +378,7 @@ takeover at either end.</p>
 the title and category if the suggested ones do not fit. Files that a connector
 cannot read are refused with an explanation instead of being stored, and the
 imported text is chunked, encrypted and cited exactly like a pasted document.</p>
-<h2>Getting started</h2>
-<pre><code class="language-bash">npm install
-npm run dev           # http://localhost:3000
-</code></pre>
-<p>Production:</p>
-<pre><code class="language-bash">export MASTER_KEY=$(openssl rand -hex 32)   # store this in your secret manager
-export NODE_ENV=production
-npm run build &amp;&amp; npm start
-</code></pre>
-<h3>Configuration</h3>
+<h2>Configuration</h2>
 <table>
 <thead>
 <tr>
@@ -383,36 +427,53 @@ npm run build &amp;&amp; npm start
 <pre><code class="language-bash">npm run test:coverage   # unit + API tests, 100% coverage thresholds
 npm run test:e2e        # Playwright end-to-end tests and screenshots
 </code></pre>
+<p>The end-to-end run also regenerates the screenshots in <code>screenshots/</code>.
+Playwright needs its browser once: <code>npx playwright install --with-deps chromium</code>.</p>
 <h3>Coverage</h3>
 <!-- coverage:start -->
-<table>
-<thead>
-<tr>
-<th>Metric</th>
-<th>Coverage</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>statements</td>
-<td>100%</td>
-</tr>
-<tr>
-<td>branches</td>
-<td>100%</td>
-</tr>
-<tr>
-<td>functions</td>
-<td>100%</td>
-</tr>
-<tr>
-<td>lines</td>
-<td>100%</td>
-</tr>
-</tbody></table>
+<p><em>Run <code>npm run test:coverage</code> to generate the coverage summary.</em></p>
 <!-- coverage:end --><h2>Documentation site</h2>
 <p><code>npm run docs:build</code> refreshes the screenshot gallery and coverage table in this
 README and regenerates <code>docs/index.html</code>, which CI publishes to GitHub Pages at
 <a href="https://charles2ke.github.io/baby-model/">https://charles2ke.github.io/baby-model/</a>.</p>
+<h2>Contributing</h2>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm run dev</code></td>
+<td>Start the server with reload on <a href="http://localhost:3000">http://localhost:3000</a></td>
+</tr>
+<tr>
+<td><code>npm run typecheck</code></td>
+<td>TypeScript check without emitting</td>
+</tr>
+<tr>
+<td><code>npm run build</code> / <code>npm start</code></td>
+<td>Compile to <code>dist/</code> and run the compiled server</td>
+</tr>
+<tr>
+<td><code>npm test</code> / <code>npm run test:coverage</code></td>
+<td>Vitest unit and API tests</td>
+</tr>
+<tr>
+<td><code>npm run test:e2e</code></td>
+<td>Playwright end-to-end tests and screenshots</td>
+</tr>
+<tr>
+<td><code>npm run docs:build</code></td>
+<td>Refresh the generated README sections and <code>docs/index.html</code></td>
+</tr>
+</tbody></table>
+<p>Before opening a pull request, run <code>npm run typecheck</code>, <code>npm run test:coverage</code>
+and <code>npm run test:e2e</code>; CI runs the same steps. The screenshot gallery and the
+coverage table above are generated — edit only the text outside the
+<code>&lt;!-- screenshots --&gt;</code> and <code>&lt;!-- coverage --&gt;</code> markers. Security issues should
+follow <a href="SECURITY.md">SECURITY.md</a> rather than a public issue.</p>
 <h2>License</h2>
 <p><a href="LICENSE">MIT</a></p>
 
