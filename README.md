@@ -299,7 +299,12 @@ Playwright needs its browser once: `npx playwright install --with-deps chromium`
 ### Coverage
 
 <!-- coverage:start -->
-_Run `npm run test:coverage` to generate the coverage summary._
+| Metric | Coverage |
+| --- | --- |
+| statements | 100% |
+| branches | 100% |
+| functions | 100% |
+| lines | 100% |
 <!-- coverage:end -->
 
 ## Documentation site

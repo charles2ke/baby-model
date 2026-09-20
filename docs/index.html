@@ -52,7 +52,7 @@ export NODE_ENV=production
 npm run build &amp;&amp; npm start
 </code></pre>
 <p>Everything is stored on the machine you run it on: a single SQLite file in
-<code>DATA_DIR</code>, with documents encrypted at rest. See
+<code>DATA_DIR</code> by default, with documents encrypted at rest. See
 <a href="#configuration">Configuration</a> for the environment variables.</p>
 <h2>How it works</h2>
 <ol>
@@ -431,7 +431,30 @@ npm run test:e2e        # Playwright end-to-end tests and screenshots
 Playwright needs its browser once: <code>npx playwright install --with-deps chromium</code>.</p>
 <h3>Coverage</h3>
 <!-- coverage:start -->
-<p><em>Run <code>npm run test:coverage</code> to generate the coverage summary.</em></p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Coverage</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>statements</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>branches</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>functions</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>lines</td>
+<td>100%</td>
+</tr>
+</tbody></table>
 <!-- coverage:end --><h2>Documentation site</h2>
 <p><code>npm run docs:build</code> refreshes the screenshot gallery and coverage table in this
 README and regenerates <code>docs/index.html</code>, which CI publishes to GitHub Pages at
