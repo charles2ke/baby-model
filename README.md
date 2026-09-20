@@ -55,7 +55,7 @@ npm run build && npm start
 ```
 
 Everything is stored on the machine you run it on: a single SQLite file in
-`DATA_DIR`, with documents encrypted at rest. See
+`DATA_DIR` by default, with documents encrypted at rest. See
 [Configuration](#configuration) for the environment variables.
 
 ## How it works
