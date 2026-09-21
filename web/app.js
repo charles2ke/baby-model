@@ -466,7 +466,9 @@ function wire() {
       if (!window.confirm('Permanently delete your account and every document?')) {
         return;
       }
-      await api('/api/account', { method: 'DELETE' });
+      await busy($('delete-account-button'), 'Deleting…', async () => {
+        await api('/api/account', { method: 'DELETE' });
+      });
       showSignedOut();
       setStatus('Account and all documents erased.');
     }),

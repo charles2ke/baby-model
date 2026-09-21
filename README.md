@@ -349,7 +349,7 @@ Playwright needs its browser once: `npx playwright install --with-deps chromium`
 | `MASTER_KEY environment variable is required in production` on start | Production refuses to run without a key. Set `MASTER_KEY` to 32 bytes of hex, e.g. `openssl rand -hex 32`, from your secret manager |
 | `Only UTF-8 text documents are supported` when uploading | The file is binary (PDF, image, Office document). Export or convert it to text first, or use a [connector](#real-world-integrations) for a provider export |
 | An import is refused with an explanation | The file does not match the chosen source, e.g. a FHIR bundle that is not valid JSON. Pick the matching source or paste the contents as plain text |
-| `Too many requests, please slow down.` while signing in | The authentication rate limit. Wait, or raise `AUTH_RATE_LIMIT` in development |
+| `Too many attempts, please try again later.` while signing in | The authentication rate limit. Wait, or raise `AUTH_RATE_LIMIT` in development |
 | Answers refuse everything | The vault is empty or nothing matched. Add a document with the wording you expect to ask about; the Ask page says so when there is nothing stored |
 | `npm run test:e2e` cannot start a browser | Run `npx playwright install --with-deps chromium` once |
 
