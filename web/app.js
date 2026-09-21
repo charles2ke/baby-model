@@ -48,11 +48,19 @@ function setTheme(theme) {
   }
 }
 
-function setStatus(message, isError = false) {
+/**
+ * Shows a message for the page that produced it. `origin` is the route the
+ * request started on, so a reply that lands after the visitor moved on is
+ * dropped instead of appearing on the page now on screen.
+ */
+function setStatus(message, isError = false, origin = currentRoute()) {
+  if (message !== '' && origin !== currentRoute()) {
+    return;
+  }
   const status = $('status');
   status.textContent = message;
   status.classList.toggle('error', isError);
-  state.statusRoute = message === '' ? '' : currentRoute();
+  state.statusRoute = message === '' ? '' : origin;
 }
 
 /**
@@ -93,12 +101,17 @@ async function api(path, { method = 'GET', body, form } = {}) {
   return data;
 }
 
-/** Runs an action and surfaces any failure in the status line. */
+/**
+ * Runs an action and surfaces any failure in the status line. The route the
+ * action started on is captured up front and handed to the action, so slow
+ * requests report on the page that initiated them or not at all.
+ */
 async function guard(action) {
+  const origin = currentRoute();
   try {
-    await action();
+    await action(origin);
   } catch (error) {
-    setStatus(error.message, true);
+    setStatus(error.message, true, origin);
   }
 }
 
@@ -248,7 +261,7 @@ async function refreshDocuments() {
     remove.textContent = 'Delete';
     remove.setAttribute('aria-label', `Delete ${doc.title}`);
     remove.addEventListener('click', () =>
-      guard(async () => {
+      guard(async (origin) => {
         // Deleting a document is irreversible, so it is always confirmed.
         if (!window.confirm(`Delete “${doc.title}” permanently?`)) {
           return;
@@ -256,7 +269,7 @@ async function refreshDocuments() {
         await busy(remove, 'Deleting…', async () => {
           await api(`/api/documents/${doc.id}`, { method: 'DELETE' });
         });
-        setStatus('Document deleted.');
+        setStatus('Document deleted.', false, origin);
         await refreshDocuments();
       }),
     );
@@ -434,7 +447,7 @@ function wire() {
   });
 
   $('export-button').addEventListener('click', () =>
-    guard(() =>
+    guard((origin) =>
       busy($('export-button'), 'Preparing…', async () => {
         const data = await api('/api/account/export');
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -443,7 +456,7 @@ function wire() {
         link.download = 'baby-model-export.json';
         link.click();
         setTimeout(() => URL.revokeObjectURL(link.href), 0);
-        setStatus('Export downloaded.');
+        setStatus('Export downloaded.', false, origin);
       }),
     ),
   );
