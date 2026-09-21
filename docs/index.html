@@ -23,6 +23,7 @@ extraction all run locally inside the application process.</p>
 <h2>Contents</h2>
 <ul>
 <li><a href="#quick-start">Quick start</a></li>
+<li><a href="#try-it-in-two-minutes">Try it in two minutes</a></li>
 <li><a href="#how-it-works">How it works</a></li>
 <li><a href="#features">Features</a></li>
 <li><a href="#screenshots">Screenshots</a></li>
@@ -32,6 +33,7 @@ extraction all run locally inside the application process.</p>
 <li><a href="#real-world-integrations">Real-world integrations</a></li>
 <li><a href="#configuration">Configuration</a></li>
 <li><a href="#testing">Testing</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
 <li><a href="#documentation-site">Documentation site</a></li>
 <li><a href="#contributing">Contributing</a></li>
 <li><a href="#license">License</a></li>
@@ -54,6 +56,24 @@ npm run build &amp;&amp; npm start
 <p>Everything is stored on the machine you run it on: a single SQLite file in
 <code>DATA_DIR</code> by default, with documents encrypted at rest. See
 <a href="#configuration">Configuration</a> for the environment variables.</p>
+<h2>Try it in two minutes</h2>
+<ol>
+<li><p>Start the server, open <a href="http://localhost:3000">http://localhost:3000</a> and choose <strong>Create account</strong>
+with any email and a password of at least 12 characters.</p>
+</li>
+<li><p>Go to <strong>Add</strong>, title the document <code>Annual blood panel 2024</code>, keep the
+category <code>Health</code>, and paste:</p>
+<pre><code class="language-text">Annual blood panel taken on 12 March 2024. HDL cholesterol was 62 mg/dL and
+LDL cholesterol was 98 mg/dL. Blood pressure measured 118 over 76.
+</code></pre>
+</li>
+<li><p>Save it, then go to <strong>Ask</strong> and ask <code>What was my HDL cholesterol?</code> — the
+answer comes back as the sentence from your own document, cited.</p>
+</li>
+<li><p>Ask <code>Who won the World Cup in 1998?</code> — the model refuses, because your
+documents do not say.</p>
+</li>
+</ol>
 <h2>How it works</h2>
 <ol>
 <li><strong>Add</strong> — a document (pasted text, an uploaded UTF-8 file or a provider
@@ -88,6 +108,15 @@ summary, a timeline or a list of figures when the question calls for it,
 without ever adding anything your documents do not say.</li>
 <li><strong>One job per page</strong> — asking a question, adding a document, browsing the vault
 and managing the account each get their own page, reached from a tab bar.</li>
+<li><strong>Feedback on every action</strong> — buttons show their work (<code>Asking…</code>, <code>Saving…</code>,
+<code>Deleting…</code>) and disable themselves while a request is in flight, so a slow
+save is visible and cannot be submitted twice.</li>
+<li><strong>Guidance when the vault is empty</strong> — the Ask page points a new account at the
+Add page instead of answering nothing, and the Documents page shows how much is
+stored, each item with a readable size and the date it was added.</li>
+<li><strong>Safe by default</strong> — deleting a document or the account asks first, the
+sign-in password can be revealed while typing it, and a status message is
+cleared when you move to another page rather than following you around.</li>
 <li><strong>Mobile first</strong> — a thumb-friendly bottom tab bar, full-width controls, large
 tap targets and safe-area padding on phones; the same tabs move to the top on
 larger screens.</li>
@@ -429,6 +458,23 @@ npm run test:e2e        # Playwright end-to-end tests and screenshots
 </code></pre>
 <p>The end-to-end run also regenerates the screenshots in <code>screenshots/</code>.
 Playwright needs its browser once: <code>npx playwright install --with-deps chromium</code>.</p>
+<h3>What the tests cover</h3>
+<table>
+<thead>
+<tr>
+<th>Suite</th>
+<th>What it proves</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tests/unit</code></td>
+<td>Crypto, storage, retrieval, skills, integrations and every API route, at 100% coverage</td>
+</tr>
+<tr>
+<td><code>tests/e2e</code></td>
+<td>Sign-up, adding and importing documents, grounded answers and refusals, account isolation, deletion and erasure, mobile layout, themes and the interaction details above</td>
+</tr>
+</tbody></table>
 <h3>Coverage</h3>
 <!-- coverage:start -->
 <table>
@@ -455,7 +501,40 @@ Playwright needs its browser once: <code>npx playwright install --with-deps chro
 <td>100%</td>
 </tr>
 </tbody></table>
-<!-- coverage:end --><h2>Documentation site</h2>
+<!-- coverage:end --><h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause and fix</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>MASTER_KEY environment variable is required in production</code> on start</td>
+<td>Production refuses to run without a key. Set <code>MASTER_KEY</code> to 32 bytes of hex, e.g. <code>openssl rand -hex 32</code>, from your secret manager</td>
+</tr>
+<tr>
+<td><code>Only UTF-8 text documents are supported</code> when uploading</td>
+<td>The file is binary (PDF, image, Office document). Export or convert it to text first, or use a <a href="#real-world-integrations">connector</a> for a provider export</td>
+</tr>
+<tr>
+<td>An import is refused with an explanation</td>
+<td>The file does not match the chosen source, e.g. a FHIR bundle that is not valid JSON. Pick the matching source or paste the contents as plain text</td>
+</tr>
+<tr>
+<td><code>Too many requests, please slow down.</code> while signing in</td>
+<td>The authentication rate limit. Wait, or raise <code>AUTH_RATE_LIMIT</code> in development</td>
+</tr>
+<tr>
+<td>Answers refuse everything</td>
+<td>The vault is empty or nothing matched. Add a document with the wording you expect to ask about; the Ask page says so when there is nothing stored</td>
+</tr>
+<tr>
+<td><code>npm run test:e2e</code> cannot start a browser</td>
+<td>Run <code>npx playwright install --with-deps chromium</code> once</td>
+</tr>
+</tbody></table>
+<h2>Documentation site</h2>
 <p><code>npm run docs:build</code> refreshes the screenshot gallery and coverage table in this
 README and regenerates <code>docs/index.html</code>, which CI publishes to GitHub Pages at
 <a href="https://charles2ke.github.io/baby-model/">https://charles2ke.github.io/baby-model/</a>.</p>

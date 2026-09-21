@@ -19,6 +19,7 @@ extraction all run locally inside the application process.
 ## Contents
 
 - [Quick start](#quick-start)
+- [Try it in two minutes](#try-it-in-two-minutes)
 - [How it works](#how-it-works)
 - [Features](#features)
 - [Screenshots](#screenshots)
@@ -28,6 +29,7 @@ extraction all run locally inside the application process.
 - [Real-world integrations](#real-world-integrations)
 - [Configuration](#configuration)
 - [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
 - [Documentation site](#documentation-site)
 - [Contributing](#contributing)
 - [License](#license)
@@ -57,6 +59,23 @@ npm run build && npm start
 Everything is stored on the machine you run it on: a single SQLite file in
 `DATA_DIR` by default, with documents encrypted at rest. See
 [Configuration](#configuration) for the environment variables.
+
+## Try it in two minutes
+
+1. Start the server, open <http://localhost:3000> and choose **Create account**
+   with any email and a password of at least 12 characters.
+2. Go to **Add**, title the document `Annual blood panel 2024`, keep the
+   category `Health`, and paste:
+
+   ```text
+   Annual blood panel taken on 12 March 2024. HDL cholesterol was 62 mg/dL and
+   LDL cholesterol was 98 mg/dL. Blood pressure measured 118 over 76.
+   ```
+
+3. Save it, then go to **Ask** and ask `What was my HDL cholesterol?` — the
+   answer comes back as the sentence from your own document, cited.
+4. Ask `Who won the World Cup in 1998?` — the model refuses, because your
+   documents do not say.
 
 ## How it works
 
@@ -93,6 +112,15 @@ another account.
   without ever adding anything your documents do not say.
 - **One job per page** — asking a question, adding a document, browsing the vault
   and managing the account each get their own page, reached from a tab bar.
+- **Feedback on every action** — buttons show their work (`Asking…`, `Saving…`,
+  `Deleting…`) and disable themselves while a request is in flight, so a slow
+  save is visible and cannot be submitted twice.
+- **Guidance when the vault is empty** — the Ask page points a new account at the
+  Add page instead of answering nothing, and the Documents page shows how much is
+  stored, each item with a readable size and the date it was added.
+- **Safe by default** — deleting a document or the account asks first, the
+  sign-in password can be revealed while typing it, and a status message is
+  cleared when you move to another page rather than following you around.
 - **Mobile first** — a thumb-friendly bottom tab bar, full-width controls, large
   tap targets and safe-area padding on phones; the same tabs move to the top on
   larger screens.
@@ -296,6 +324,13 @@ npm run test:e2e        # Playwright end-to-end tests and screenshots
 The end-to-end run also regenerates the screenshots in `docs/screenshots/`.
 Playwright needs its browser once: `npx playwright install --with-deps chromium`.
 
+### What the tests cover
+
+| Suite | What it proves |
+| --- | --- |
+| `tests/unit` | Crypto, storage, retrieval, skills, integrations and every API route, at 100% coverage |
+| `tests/e2e` | Sign-up, adding and importing documents, grounded answers and refusals, account isolation, deletion and erasure, mobile layout, themes and the interaction details above |
+
 ### Coverage
 
 <!-- coverage:start -->
@@ -306,6 +341,17 @@ Playwright needs its browser once: `npx playwright install --with-deps chromium`
 | functions | 100% |
 | lines | 100% |
 <!-- coverage:end -->
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| `MASTER_KEY environment variable is required in production` on start | Production refuses to run without a key. Set `MASTER_KEY` to 32 bytes of hex, e.g. `openssl rand -hex 32`, from your secret manager |
+| `Only UTF-8 text documents are supported` when uploading | The file is binary (PDF, image, Office document). Export or convert it to text first, or use a [connector](#real-world-integrations) for a provider export |
+| An import is refused with an explanation | The file does not match the chosen source, e.g. a FHIR bundle that is not valid JSON. Pick the matching source or paste the contents as plain text |
+| `Too many requests, please slow down.` while signing in | The authentication rate limit. Wait, or raise `AUTH_RATE_LIMIT` in development |
+| Answers refuse everything | The vault is empty or nothing matched. Add a document with the wording you expect to ask about; the Ask page says so when there is nothing stored |
+| `npm run test:e2e` cannot start a browser | Run `npx playwright install --with-deps chromium` once |
 
 ## Documentation site
 
