@@ -57,14 +57,19 @@
           <label for="email">Email</label>
           <input id="email" name="email" type="email" autocomplete="username" required />
           <label for="password">Password (minimum 12 characters)</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            minlength="12"
-            required
-          />
+          <div class="password-field">
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              minlength="12"
+              required
+            />
+            <button id="password-toggle" type="button" class="reveal" aria-pressed="false">
+              Show
+            </button>
+          </div>
           <div class="actions stack">
             <button id="login-button" type="submit">Sign in</button>
             <button id="register-button" type="button" class="secondary">Create account</button>
@@ -79,6 +84,10 @@
       <section id="ask-page" class="page ask" hidden>
         <h1 tabindex="-1">Ask your documents</h1>
         <p class="page-intro">One question at a time, answered only from what you have stored.</p>
+        <p id="ask-empty" class="notice" hidden>
+          Your vault is empty, so there is nothing to answer from yet.
+          <a href="#/add">Add your first document</a>.
+        </p>
         <form id="ask-form" class="ask-form">
           <label for="question">Question</label>
           <input
@@ -91,9 +100,11 @@
             placeholder="What was my HDL cholesterol?"
             required
           />
-          <div class="actions"><button type="submit" class="primary-cta">Ask</button></div>
+          <div class="actions">
+            <button id="ask-button" type="submit" class="primary-cta">Ask</button>
+          </div>
         </form>
-        <div id="answer" class="answer" hidden></div>
+        <div id="answer" class="answer" tabindex="-1" hidden></div>
       </section>
 
       <section id="add-page" class="page card" hidden>
@@ -123,13 +134,17 @@
           <textarea id="content" name="content" rows="6"></textarea>
           <label for="file" id="file-label">…or upload a UTF-8 text file</label>
           <input id="file" name="file" type="file" accept=".txt,.md,.csv,.json,text/*" />
-          <div class="actions"><button type="submit">Save securely</button></div>
+          <div class="actions">
+            <button id="save-button" type="submit">Save securely</button>
+          </div>
         </form>
       </section>
 
       <section id="documents-page" class="page card" hidden>
         <h1 tabindex="-1">Your documents</h1>
-        <p class="page-intro">Everything stored in your vault, encrypted at rest.</p>
+        <p class="page-intro">
+          <span id="document-count">Everything stored in your vault</span>, encrypted at rest.
+        </p>
         <ul id="document-list" class="documents"></ul>
       </section>
 

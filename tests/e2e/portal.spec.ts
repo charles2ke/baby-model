@@ -18,7 +18,7 @@ async function signUp(page: Page, email: string): Promise<void> {
 
 /** Every page does one thing, so tests move between them through the tab bar. */
 async function openTab(page: Page, name: string): Promise<void> {
-  await page.getByRole('link', { name }).click();
+  await page.locator('#tabbar').getByRole('link', { name }).click();
 }
 
 async function addDocument(
@@ -43,6 +43,9 @@ test('a user signs up, stores documents and gets grounded answers', async ({ pag
   const email = uniqueEmail('portal');
   await signUp(page, email);
 
+  // A brand new vault says so on the Ask page instead of answering nothing.
+  await expect(page.locator('#ask-empty')).toBeVisible();
+
   await addDocument(
     page,
     'Annual blood panel 2024',
@@ -61,9 +64,11 @@ test('a user signs up, stores documents and gets grounded answers', async ({ pag
     'education',
     'Completed an MSc in Statistics at Trinity College in 2019 with first class honours.',
   );
+  await expect(page.locator('#document-count')).toHaveText('3 documents stored');
   await page.screenshot({ path: `${SHOTS}/02-documents.png`, fullPage: true });
 
   await openTab(page, 'Ask');
+  await expect(page.locator('#ask-empty')).toBeHidden();
   await page.getByLabel('Question').fill('What was my HDL cholesterol?');
   await page.getByRole('button', { name: 'Ask' }).click();
   await expect(page.locator('#answer')).toContainText('62 mg/dL');
@@ -117,8 +122,12 @@ test('a user can sign out, sign back in, delete a document and erase the account
 
   await openTab(page, 'Documents');
   await expect(page.getByText('Notes')).toBeVisible();
-  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.locator('#document-count')).toHaveText('1 document stored');
+  // Deleting a document is irreversible, so it asks first.
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Delete Notes' }).click();
   await expect(page.locator('#document-list')).toContainText('No documents yet');
+  await expect(page.locator('#document-count')).toHaveText('Nothing stored yet');
 
   await openTab(page, 'Account');
   page.once('dialog', (dialog) => dialog.accept());
@@ -151,6 +160,25 @@ test('every page does one thing and works on a small mobile screen', async ({ pa
   // The tab bar stays reachable at the bottom of the small screen.
   await expect(page.locator('#tabbar')).toBeVisible();
   await expect(page.locator('#tab-ask')).toHaveAttribute('aria-current', 'page');
+});
+
+test('the sign-in password can be revealed before submitting', async ({ page }) => {
+  await page.goto('/');
+  const password = page.getByLabel('Password (minimum 12 characters)');
+  await password.fill(PASSWORD);
+  await expect(password).toHaveAttribute('type', 'password');
+  await page.getByRole('button', { name: 'Show' }).click();
+  await expect(password).toHaveAttribute('type', 'text');
+  await page.getByRole('button', { name: 'Hide' }).click();
+  await expect(password).toHaveAttribute('type', 'password');
+});
+
+test('a status message does not linger on the next page', async ({ page }) => {
+  await signUp(page, uniqueEmail('status'));
+  await addDocument(page, 'Warranty', 'other', 'The laptop warranty runs until May 2028.');
+  await expect(page.locator('#status')).toContainText('Document stored and encrypted.');
+  await openTab(page, 'Ask');
+  await expect(page.locator('#status')).toHaveText('');
 });
 
 test('the theme can be pinned to light or dark and survives a reload', async ({ page }) => {

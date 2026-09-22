@@ -1,4 +1,4 @@
-const state = { csrfToken: '', email: '', integrations: [] };
+const state = { csrfToken: '', email: '', integrations: [], statusRoute: '' };
 
 const ROUTES = ['ask', 'add', 'documents', 'account'];
 const DEFAULT_ROUTE = 'ask';
@@ -48,10 +48,37 @@ function setTheme(theme) {
   }
 }
 
-function setStatus(message, isError = false) {
+/**
+ * Shows a message for the page that produced it. `origin` is the route the
+ * request started on, so a reply that lands after the visitor moved on is
+ * dropped instead of appearing on the page now on screen.
+ */
+function setStatus(message, isError = false, origin = currentRoute()) {
+  if (message !== '' && origin !== currentRoute()) {
+    return;
+  }
   const status = $('status');
   status.textContent = message;
   status.classList.toggle('error', isError);
+  state.statusRoute = message === '' ? '' : origin;
+}
+
+/**
+ * Runs an action with its button disabled and relabelled, so a slow request
+ * is visible and cannot be submitted twice by an impatient tap.
+ */
+async function busy(button, label, action) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.textContent = label;
+  try {
+    await action();
+  } finally {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.textContent = original;
+  }
 }
 
 async function api(path, { method = 'GET', body, form } = {}) {
@@ -74,12 +101,17 @@ async function api(path, { method = 'GET', body, form } = {}) {
   return data;
 }
 
-/** Runs an action and surfaces any failure in the status line. */
+/**
+ * Runs an action and surfaces any failure in the status line. The route the
+ * action started on is captured up front and handed to the action, so slow
+ * requests report on the page that initiated them or not at all.
+ */
 async function guard(action) {
+  const origin = currentRoute();
   try {
-    await action();
+    await action(origin);
   } catch (error) {
-    setStatus(error.message, true);
+    setStatus(error.message, true, origin);
   }
 }
 
@@ -89,10 +121,20 @@ function routeFromHash() {
   return ROUTES.includes(name) ? name : DEFAULT_ROUTE;
 }
 
+/** The page actually on screen: signed-out visitors only ever see sign-in. */
+function currentRoute() {
+  return state.csrfToken === '' ? SIGNIN_ROUTE : routeFromHash();
+}
+
 /** Shows exactly one page, because every view of the portal does a single thing. */
 function render() {
   const signedIn = state.csrfToken !== '';
-  const route = signedIn ? routeFromHash() : SIGNIN_ROUTE;
+  const route = currentRoute();
+  // A message belongs to the page that produced it and would be confusing
+  // once another page is on screen.
+  if (state.statusRoute !== '' && state.statusRoute !== route) {
+    setStatus('');
+  }
   for (const name of [SIGNIN_ROUTE, ...ROUTES]) {
     const page = $(`${name}-page`);
     const active = name === route;
@@ -131,6 +173,13 @@ function showSignedIn(session, route = routeFromHash()) {
   navigate(route);
 }
 
+/** Returns the password field to its masked state, never leaving it revealed. */
+function hidePassword() {
+  $('password').type = 'password';
+  $('password-toggle').textContent = 'Show';
+  $('password-toggle').setAttribute('aria-pressed', 'false');
+}
+
 function showSignedOut() {
   state.csrfToken = '';
   state.email = '';
@@ -139,20 +188,55 @@ function showSignedOut() {
   answer.replaceChildren();
   answer.hidden = true;
   $('question').value = '';
+  hidePassword();
   $('document-list').replaceChildren();
+  applyDocumentCount(0);
   state.integrations = [];
   $('source').replaceChildren(new Option('Plain text or text file', 'text'));
   render();
+}
+
+/** Human-readable document size: bytes are precise but rarely meaningful. */
+function formatBytes(bytes) {
+  if (bytes < 1024) {
+    return `${bytes} bytes`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Formats the stored ISO timestamp in the visitor's own locale. */
+function formatDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+/** Keeps the vault-dependent parts of the portal in step with its contents. */
+function applyDocumentCount(count) {
+  $('document-count').textContent =
+    count === 0
+      ? 'Nothing stored yet'
+      : `${count} ${count === 1 ? 'document' : 'documents'} stored`;
+  $('ask-empty').hidden = count > 0;
 }
 
 async function refreshDocuments() {
   const { documents } = await api('/api/documents');
   const list = $('document-list');
   list.replaceChildren();
+  applyDocumentCount(documents.length);
   if (documents.length === 0) {
     const empty = document.createElement('li');
     empty.className = 'empty';
     empty.textContent = 'No documents yet. Add one to teach your private model.';
+    const link = document.createElement('a');
+    link.href = '#/add';
+    link.textContent = 'Add a document';
+    empty.append(' ', link);
     list.append(empty);
     return;
   }
@@ -168,16 +252,24 @@ async function refreshDocuments() {
     title.textContent = doc.title;
     const meta = document.createElement('span');
     meta.className = 'document-meta';
-    meta.textContent = `${doc.byteSize} bytes`;
+    const added = formatDate(doc.createdAt);
+    meta.textContent = added ? `${formatBytes(doc.byteSize)} · added ${added}` : formatBytes(doc.byteSize);
     label.append(badge, title, meta);
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'danger small';
     remove.textContent = 'Delete';
+    remove.setAttribute('aria-label', `Delete ${doc.title}`);
     remove.addEventListener('click', () =>
-      guard(async () => {
-        await api(`/api/documents/${doc.id}`, { method: 'DELETE' });
-        setStatus('Document deleted.');
+      guard(async (origin) => {
+        // Deleting a document is irreversible, so it is always confirmed.
+        if (!window.confirm(`Delete “${doc.title}” permanently?`)) {
+          return;
+        }
+        await busy(remove, 'Deleting…', async () => {
+          await api(`/api/documents/${doc.id}`, { method: 'DELETE' });
+        });
+        setStatus('Document deleted.', false, origin);
         await refreshDocuments();
       }),
     );
@@ -251,6 +343,9 @@ function renderAnswer(result) {
     container.append(list);
   }
   container.hidden = false;
+  // Moves the reader straight to the result instead of leaving it below the fold.
+  container.focus({ preventScroll: true });
+  container.scrollIntoView({ block: 'nearest' });
 }
 
 async function handleAuth(action) {
@@ -259,6 +354,7 @@ async function handleAuth(action) {
   const session = await api(`/api/auth/${action}`, { method: 'POST', body: { email, password } });
   showSignedIn(session, DEFAULT_ROUTE);
   $('password').value = '';
+  hidePassword();
   setStatus(action === 'register' ? 'Vault created.' : 'Signed in.');
   await refreshIntegrations();
   await refreshDocuments();
@@ -281,10 +377,22 @@ function wire() {
 
   $('auth-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    guard(() => handleAuth('login'));
+    guard(() => busy($('login-button'), 'Signing in…', () => handleAuth('login')));
   });
 
-  $('register-button').addEventListener('click', () => guard(() => handleAuth('register')));
+  $('register-button').addEventListener('click', () =>
+    guard(() => busy($('register-button'), 'Creating…', () => handleAuth('register'))),
+  );
+
+  // Typos are the usual reason a long password is rejected, so it can be read back.
+  $('password-toggle').addEventListener('click', () => {
+    const field = $('password');
+    const reveal = field.type === 'password';
+    field.type = reveal ? 'text' : 'password';
+    $('password-toggle').textContent = reveal ? 'Hide' : 'Show';
+    $('password-toggle').setAttribute('aria-pressed', String(reveal));
+    field.focus();
+  });
 
   $('logout-button').addEventListener('click', () =>
     guard(async () => {
@@ -296,53 +404,61 @@ function wire() {
 
   $('upload-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    guard(async () => {
-      const integration = selectedIntegration();
-      const form = new FormData();
-      form.append('title', $('title').value);
-      form.append('category', $('category').value);
-      form.append('content', $('content').value);
-      const file = $('file').files[0];
-      if (file) {
-        form.append('file', file);
-      }
-      const path = integration ? `/api/integrations/${integration.id}/import` : '/api/documents';
-      await api(path, { method: 'POST', form });
-      $('upload-form').reset();
-      applySource();
-      await refreshDocuments();
-      navigate('documents');
-      setStatus(
-        integration ? `Imported from ${integration.label} and encrypted.` : 'Document stored and encrypted.',
-      );
-    });
+    const submit = $('save-button');
+    guard(() =>
+      busy(submit, 'Saving…', async () => {
+        const integration = selectedIntegration();
+        const form = new FormData();
+        form.append('title', $('title').value);
+        form.append('category', $('category').value);
+        form.append('content', $('content').value);
+        const file = $('file').files[0];
+        if (file) {
+          form.append('file', file);
+        }
+        const path = integration ? `/api/integrations/${integration.id}/import` : '/api/documents';
+        await api(path, { method: 'POST', form });
+        $('upload-form').reset();
+        applySource();
+        await refreshDocuments();
+        navigate('documents');
+        setStatus(
+          integration ? `Imported from ${integration.label} and encrypted.` : 'Document stored and encrypted.',
+        );
+      }),
+    );
   });
 
   $('source').addEventListener('change', applySource);
 
   $('ask-form').addEventListener('submit', (event) => {
     event.preventDefault();
-    guard(async () => {
-      const result = await api('/api/ask', {
-        method: 'POST',
-        body: { question: $('question').value },
-      });
-      renderAnswer(result);
-      setStatus('');
-    });
+    const submit = $('ask-button');
+    guard(() =>
+      busy(submit, 'Asking…', async () => {
+        setStatus('');
+        const result = await api('/api/ask', {
+          method: 'POST',
+          body: { question: $('question').value },
+        });
+        renderAnswer(result);
+      }),
+    );
   });
 
   $('export-button').addEventListener('click', () =>
-    guard(async () => {
-      const data = await api('/api/account/export');
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'baby-model-export.json';
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(link.href), 0);
-      setStatus('Export downloaded.');
-    }),
+    guard((origin) =>
+      busy($('export-button'), 'Preparing…', async () => {
+        const data = await api('/api/account/export');
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'baby-model-export.json';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 0);
+        setStatus('Export downloaded.', false, origin);
+      }),
+    ),
   );
 
   $('delete-account-button').addEventListener('click', () =>
@@ -350,7 +466,9 @@ function wire() {
       if (!window.confirm('Permanently delete your account and every document?')) {
         return;
       }
-      await api('/api/account', { method: 'DELETE' });
+      await busy($('delete-account-button'), 'Deleting…', async () => {
+        await api('/api/account', { method: 'DELETE' });
+      });
       showSignedOut();
       setStatus('Account and all documents erased.');
     }),
