@@ -32,17 +32,14 @@ jobs:
         run: npm run test:e2e
       - name: Update README and build the docs site
         run: npm run docs:build
-      - name: Commit refreshed README and screenshots
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md docs
-          if git diff --cached --quiet; then
-            echo "Documentation already up to date"
-          else
-            git commit -m "docs: refresh README screenshots and coverage [skip ci]"
-            git push
-          fi
+      - name: Upload refreshed README and screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-update
+          path: |
+            README.md
+            docs
+          retention-days: 1
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -57,3 +54,28 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Pushing to main starts a new Pages deployment, which cancels any deployment
+  # still in flight. The refreshed documentation is therefore committed only
+  # once the deployment above has finished.
+  commit:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove generated documentation
+        run: rm -rf docs
+      - uses: actions/download-artifact@v4
+        with:
+          name: docs-update
+      - name: Commit refreshed README and screenshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all README.md docs
+          if git diff --cached --quiet; then
+            echo "Documentation already up to date"
+          else
+            git commit -m "docs: refresh README screenshots and coverage [skip ci]"
+            git push
+          fi
