@@ -36,6 +36,11 @@ const CAPTIONS = {
     'Imported real-world data is answerable and cited like any other document',
   '13-skill-timeline.png':
     'Skills reshape a grounded answer into a timeline, a summary or a list of figures',
+  '14-document-reader.png':
+    'A citation opens its document with the quoted passage highlighted',
+  '15-document-filters.png': 'Search document titles and filter the list by category',
+  '16-account-security.png':
+    'See other signed-in sessions, sign them out and change the password',
 };
 
 function replaceSection(markdown, name, body) {

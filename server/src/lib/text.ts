@@ -15,6 +15,159 @@ export function tokenize(text: string): string[] {
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
 }
 
+/* ------------------------------------------------------- Porter stemmer */
+
+/** A consonant is any letter but a vowel, and `y` only when it follows a vowel or starts the word. */
+function isConsonant(word: string, index: number): boolean {
+  const letter = word[index] as string;
+  if ('aeiou'.includes(letter)) {
+    return false;
+  }
+  return letter !== 'y' || index === 0 || !isConsonant(word, index - 1);
+}
+
+/** Porter's measure `m`: the number of vowel-consonant sequences in a stem. */
+function measure(stem: string): number {
+  let count = 0;
+  for (let index = 1; index < stem.length; index += 1) {
+    if (isConsonant(stem, index) && !isConsonant(stem, index - 1)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function hasVowel(stem: string): boolean {
+  return [...stem].some((_letter, index) => !isConsonant(stem, index));
+}
+
+function endsWithDoubleConsonant(stem: string): boolean {
+  const last = stem.length - 1;
+  return last > 0 && stem[last] === stem[last - 1] && isConsonant(stem, last);
+}
+
+/** Consonant-vowel-consonant ending whose last letter is not `w`, `x` or `y`, as in `hop`. */
+function endsWithCvc(stem: string): boolean {
+  const last = stem.length - 1;
+  return (
+    last >= 2 &&
+    isConsonant(stem, last - 2) &&
+    !isConsonant(stem, last - 1) &&
+    isConsonant(stem, last) &&
+    !'wxy'.includes(stem[last] as string)
+  );
+}
+
+type SuffixRules = ReadonlyArray<readonly [suffix: string, replacement: string]>;
+
+/** Rules are tried longest suffix first, and only the longest matching one is ever considered. */
+function longestFirst(rules: SuffixRules): SuffixRules {
+  return [...rules].sort((a, b) => b[0].length - a[0].length);
+}
+
+const STEP_1A = longestFirst([['sses', 'ss'], ['ies', 'i'], ['ss', 'ss'], ['s', '']]);
+
+const STEP_2 = longestFirst([
+  ['ational', 'ate'], ['tional', 'tion'], ['enci', 'ence'], ['anci', 'ance'], ['izer', 'ize'],
+  ['abli', 'able'], ['alli', 'al'], ['entli', 'ent'], ['eli', 'e'], ['ousli', 'ous'],
+  ['ization', 'ize'], ['ation', 'ate'], ['ator', 'ate'], ['alism', 'al'], ['iveness', 'ive'],
+  ['fulness', 'ful'], ['ousness', 'ous'], ['aliti', 'al'], ['iviti', 'ive'], ['biliti', 'ble'],
+]);
+
+const STEP_3 = longestFirst([
+  ['icate', 'ic'], ['ative', ''], ['alize', 'al'], ['iciti', 'ic'], ['ical', 'ic'], ['ful', ''],
+  ['ness', ''],
+]);
+
+const STEP_4 = longestFirst(
+  ['al', 'ance', 'ence', 'er', 'ic', 'able', 'ible', 'ant', 'ement', 'ment', 'ent', 'ion', 'ou',
+    'ism', 'ate', 'iti', 'ous', 'ive', 'ize'].map((suffix) => [suffix, ''] as const),
+);
+
+function replaceSuffix(
+  word: string,
+  rules: SuffixRules,
+  condition: (stem: string, suffix: string) => boolean,
+): string {
+  const rule = rules.find(([suffix]) => word.endsWith(suffix));
+  if (!rule) {
+    return word;
+  }
+  const stem = word.slice(0, word.length - rule[0].length);
+  return condition(stem, rule[0]) ? stem + rule[1] : word;
+}
+
+/** Step 1b: `-eed`, `-ed` and `-ing`, then tidies the stem they leave behind. */
+function stripVerbEnding(word: string): string {
+  if (word.endsWith('eed')) {
+    return measure(word.slice(0, -3)) > 0 ? word.slice(0, -1) : word;
+  }
+  const suffix = ['ed', 'ing'].find((ending) => word.endsWith(ending));
+  const stem = suffix ? word.slice(0, word.length - suffix.length) : '';
+  if (!hasVowel(stem)) {
+    return word;
+  }
+  if (/(?:at|bl|iz)$/.test(stem) || (measure(stem) === 1 && endsWithCvc(stem))) {
+    return `${stem}e`;
+  }
+  return endsWithDoubleConsonant(stem) && !/[lsz]$/.test(stem) ? stem.slice(0, -1) : stem;
+}
+
+/** Step 5: drops a final `-e` and reduces a final `-ll` on long enough stems. */
+function tidyEnding(word: string): string {
+  let result = word;
+  if (result.endsWith('e')) {
+    const stem = result.slice(0, -1);
+    const size = measure(stem);
+    if (size > 1 || (size === 1 && !endsWithCvc(stem))) {
+      result = stem;
+    }
+  }
+  return result.endsWith('ll') && measure(result) > 1 ? result.slice(0, -1) : result;
+}
+
+/**
+ * Reduces an English word to its stem with the published Porter (1980)
+ * algorithm, so that `payments` finds `payment` and `vaccinated` finds
+ * `vaccination`. Only plain lowercase words are stemmed; figures, dates,
+ * amounts and identifiers are returned unchanged.
+ */
+export function stem(word: string): string {
+  if (!/^[a-z]+$/.test(word)) {
+    return word;
+  }
+  let result = stripVerbEnding(replaceSuffix(word, STEP_1A, () => true));
+  if (result.endsWith('y') && hasVowel(result.slice(0, -1))) {
+    result = `${result.slice(0, -1)}i`;
+  }
+  result = replaceSuffix(result, STEP_2, (base) => measure(base) > 0);
+  result = replaceSuffix(result, STEP_3, (base) => measure(base) > 0);
+  result = replaceSuffix(
+    result,
+    STEP_4,
+    (base, suffix) => measure(base) > 1 && (suffix !== 'ion' || /[st]$/.test(base)),
+  );
+  return tidyEnding(result);
+}
+
+/**
+ * The terms retrieval matches on: tokens reduced to their stems, so that a
+ * question and a document using different forms of a word still meet. Pass
+ * the same `stems` map to calls that share a vocabulary to stem each distinct
+ * word once; it should live no longer than the request, so that words from
+ * decrypted documents are not kept in memory.
+ */
+export function terms(text: string, stems = new Map<string, string>()): string[] {
+  return tokenize(text).map((token) => {
+    let stemmed = stems.get(token);
+    if (stemmed === undefined) {
+      stemmed = stem(token);
+      stems.set(token, stemmed);
+    }
+    return stemmed;
+  });
+}
+
 /** Splits a document into sentences, preserving readable punctuation. */
 export function splitSentences(text: string): string[] {
   return text
@@ -24,19 +177,27 @@ export function splitSentences(text: string): string[] {
 }
 
 /**
- * Groups sentences into overlapping chunks so that answers keep enough context
- * while remaining small enough to cite precisely.
+ * Groups sentences into chunks of up to `maxChars` characters, so that answers
+ * keep enough context while remaining small enough to cite precisely. A chunk
+ * repeats the last sentence of the one before it whenever that still fits, so
+ * a passage that spans a chunk boundary is found with its context. A single
+ * sentence longer than `maxChars` becomes a chunk of its own.
+ *
+ * Sentences are kept on lines of their own, so a chunk splits back into
+ * exactly the sentences of its document even where a line had no full stop.
  */
 export function chunkText(text: string, maxChars = 600): string[] {
   const sentences = splitSentences(text);
   const chunks: string[] = [];
   let current = '';
+  let previous = '';
   for (const sentence of sentences) {
     if (current.length > 0 && current.length + sentence.length + 1 > maxChars) {
       chunks.push(current);
-      current = '';
+      current = previous.length + sentence.length + 1 <= maxChars ? previous : '';
     }
-    current = current.length > 0 ? `${current} ${sentence}` : sentence;
+    current = current.length > 0 ? `${current}\n${sentence}` : sentence;
+    previous = sentence;
   }
   if (current.length > 0) {
     chunks.push(current);

@@ -16,6 +16,14 @@ async function signUp(page: Page, email: string): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Ask your documents' })).toBeVisible();
 }
 
+/** Submits the sign-in form; callers check whether it let them in. */
+async function signIn(page: Page, email: string, password: string): Promise<void> {
+  await page.goto('/');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password (minimum 12 characters)').fill(password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+}
+
 /** Every page does one thing, so tests move between them through the tab bar. */
 async function openTab(page: Page, name: string): Promise<void> {
   await page.locator('#tabbar').getByRole('link', { name }).click();
@@ -28,8 +36,9 @@ async function addDocument(
   content: string,
 ): Promise<void> {
   await openTab(page, 'Add');
-  await page.getByLabel('Title').fill(title);
-  await page.getByLabel('Category').selectOption(category);
+  // Exact labels: the Documents page also has "Search titles" and "Filter by category".
+  await page.getByLabel('Title', { exact: true }).fill(title);
+  await page.getByLabel('Category', { exact: true }).selectOption(category);
   await page.getByLabel('Paste text').fill(content);
   await page.getByRole('button', { name: 'Save securely' }).click();
   await expect(page.getByRole('heading', { name: 'Your documents' })).toBeVisible();
@@ -38,6 +47,8 @@ async function addDocument(
 
 test('a user signs up, stores documents and gets grounded answers', async ({ page }) => {
   await page.goto('/');
+  // Signed-out visitors only ever get the sign-in page, without the tab bar.
+  await expect(page.locator('#tabbar')).toBeHidden();
   await page.screenshot({ path: `${SHOTS}/01-sign-in.png`, fullPage: true });
 
   const email = uniqueEmail('portal');
@@ -101,6 +112,8 @@ test('documents are private to the account that uploaded them', async ({ page, c
   await intruderPage.screenshot({ path: `${SHOTS}/05-isolated-accounts.png`, fullPage: true });
   await openTab(intruderPage, 'Documents');
   await expect(intruderPage.locator('#document-list')).toContainText('No documents yet');
+  // There is nothing to search in an empty vault.
+  await expect(intruderPage.getByLabel('Search titles')).toBeHidden();
   await intruderPage.close();
 });
 
@@ -112,7 +125,7 @@ test('a user can sign out, sign back in, delete a document and erase the account
   await addDocument(page, 'Notes', 'other', 'Remember to renew the passport in June 2027.');
 
   await openTab(page, 'Account');
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Sign in or create/ })).toBeVisible();
 
   await page.getByLabel('Email').fill(email);
@@ -285,4 +298,146 @@ test('a skill reshapes the answer without leaving the documents', async ({ page 
   await expect(page.locator('#answer p').first()).toContainText('• Tetanus vaccination first given in 2011.');
   await expect(page.locator('.citations')).toContainText('Vaccination record');
   await page.screenshot({ path: `${SHOTS}/13-skill-timeline.png`, fullPage: true });
+});
+
+test('documents can be searched, filtered and opened where an answer quoted them', async ({ page }) => {
+  await signUp(page, uniqueEmail('reader'));
+  await addDocument(
+    page,
+    'Passport renewal',
+    'other',
+    'Remember to renew the passport in June 2027. <b>Bring</b> two photos.',
+  );
+  await addDocument(
+    page,
+    'Home insurance',
+    'finance',
+    'The home insurance policy renews every January.\nPolicy number: HI-4471\nInsurer: Harbour Mutual',
+  );
+  await addDocument(
+    page,
+    'GP visit notes',
+    'health',
+    [
+      'Visit with Dr Byrne at the Main Street clinic.',
+      'Blood type: O positive',
+      'Allergies: penicillin',
+      'Next check-up booked for 3 September 2025.',
+    ].join('\n'),
+  );
+
+  // A title search ignores case, and combines with the category filter.
+  const list = page.locator('#document-list');
+  const summary = page.locator('#document-filter-summary');
+  await expect(summary).toBeHidden();
+  await page.getByLabel('Search titles').fill('INSURANCE');
+  await expect(list.locator('li')).toHaveCount(1);
+  await expect(list).toContainText('Home insurance');
+  await expect(summary).toHaveText('Showing 1 of 3 documents');
+  await page.getByLabel('Filter by category').selectOption('health');
+  await expect(list).toContainText('No documents match your search.');
+  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(list.locator('li')).toHaveCount(3);
+  await expect(summary).toBeHidden();
+  await expect(page.getByLabel('Search titles')).toHaveValue('');
+  await page.getByLabel('Search titles').fill('visit');
+  await page.getByLabel('Filter by category').selectOption('health');
+  await expect(list.locator('li')).toHaveCount(1);
+  await expect(summary).toHaveText('Showing 1 of 3 documents');
+  await page.screenshot({ path: `${SHOTS}/15-document-filters.png`, fullPage: true, animations: 'disabled' });
+
+  // A title opens the document as written; markup in it stays plain text.
+  await page.getByLabel('Search titles').fill('');
+  await page.getByLabel('Filter by category').selectOption('');
+  await page.getByRole('link', { name: 'Passport renewal', exact: true }).click();
+  const reader = page.locator('#document-page');
+  await expect(reader.getByRole('heading', { name: 'Passport renewal' })).toBeVisible();
+  await expect(page.locator('#reader-meta')).toContainText('other');
+  await expect(page.locator('#reader-content')).toHaveText(
+    'Remember to renew the passport in June 2027. <b>Bring</b> two photos.',
+  );
+  await expect(page.locator('#reader-content b')).toHaveCount(0);
+  await expect(page.locator('#reader-note')).toBeHidden();
+  await expect(page.locator('#tab-documents')).toHaveClass(/active/);
+  await expect(page.locator('main section.page:visible')).toHaveCount(1);
+  await page.getByRole('link', { name: 'All documents' }).click();
+  await expect(page.getByRole('heading', { name: 'Your documents' })).toBeVisible();
+
+  // A citation opens its document with the quoted passage marked.
+  await openTab(page, 'Ask');
+  await page.getByLabel('Question').fill('What is my blood type?');
+  await page.getByRole('button', { name: 'Ask' }).click();
+  await expect(page.locator('#answer')).toContainText('Blood type: O positive');
+  await page.locator('.citations').getByRole('link', { name: 'GP visit notes' }).click();
+  await expect(reader.getByRole('heading', { name: 'GP visit notes' })).toBeVisible();
+  await expect(page.locator('#reader-content mark')).toHaveText(['Blood type: O positive']);
+  await expect(page.locator('#reader-content')).toContainText('Allergies: penicillin');
+  await expect(page.locator('#reader-note')).toBeVisible();
+  // Only the document is in the address; what was quoted from it stays in memory.
+  expect(new URL(page.url()).hash).toMatch(/^#\/documents\/\d+$/);
+  await page.screenshot({ path: `${SHOTS}/14-document-reader.png`, fullPage: true, animations: 'disabled' });
+
+  // Reopening the document later shows it without the old highlight.
+  await page.getByRole('link', { name: 'All documents' }).click();
+  await page.getByRole('link', { name: 'GP visit notes', exact: true }).click();
+  await expect(reader.getByRole('heading', { name: 'GP visit notes' })).toBeVisible();
+  await expect(page.locator('#reader-content')).toContainText('Blood type: O positive');
+  await expect(page.locator('#reader-content mark')).toHaveCount(0);
+});
+
+test('a user can sign out other sessions and change the password', async ({ page, browser }) => {
+  const NEW_PASSWORD = 'a-brand-new-long-passphrase';
+  const email = uniqueEmail('security');
+  await signUp(page, email);
+  const laptop = await browser.newContext();
+  const other = await laptop.newPage();
+  await signIn(other, email, PASSWORD);
+  await expect(other.getByRole('heading', { name: 'Ask your documents' })).toBeVisible();
+
+  await openTab(page, 'Account');
+  const sessions = page.locator('#sessions-summary');
+  await expect(sessions).toHaveText('1 other session is signed in to your account.');
+  await page.screenshot({ path: `${SHOTS}/16-account-security.png`, fullPage: true, animations: 'disabled' });
+
+  // Signing out everywhere else asks first, and keeps this session.
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Sign out other sessions' }).click();
+  await expect(page.locator('#status')).toHaveText('Signed out 1 other session.');
+  await expect(sessions).toHaveText('No other session is signed in to your account.');
+  await other.reload();
+  await expect(other.getByRole('heading', { name: /Sign in or create/ })).toBeVisible();
+
+  // A password change needs the current password and a matching confirmation.
+  await signIn(other, email, PASSWORD);
+  await expect(other.getByRole('heading', { name: 'Ask your documents' })).toBeVisible();
+  await page.getByLabel('Current password').fill('not-the-current-password');
+  await page.getByLabel('New password', { exact: true }).fill(NEW_PASSWORD);
+  await page.getByLabel('Confirm new password').fill(NEW_PASSWORD);
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.locator('#status')).toHaveText('Your current password is incorrect');
+  await page.getByLabel('Current password').fill(PASSWORD);
+  await page.getByLabel('Confirm new password').fill(`${NEW_PASSWORD}!`);
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.locator('#status')).toHaveText(
+    'The new password and its confirmation do not match.',
+  );
+  await page.getByLabel('Confirm new password').fill(NEW_PASSWORD);
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.locator('#status')).toHaveText('Password changed and 1 other session signed out.');
+  await expect(page.getByLabel('Current password')).toHaveValue('');
+  await expect(page.getByLabel('New password', { exact: true })).toHaveValue('');
+  await other.reload();
+  await expect(other.getByRole('heading', { name: /Sign in or create/ })).toBeVisible();
+  await laptop.close();
+
+  // This session carries on, with the token issued along with the new password.
+  await addDocument(page, 'Locker code', 'other', 'The gym locker code is 4821.');
+
+  // From now on only the new password signs in.
+  await openTab(page, 'Account');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await signIn(page, email, PASSWORD);
+  await expect(page.locator('#status')).toHaveText('Invalid credentials');
+  await signIn(page, email, NEW_PASSWORD);
+  await expect(page.getByRole('heading', { name: 'Ask your documents' })).toBeVisible();
 });

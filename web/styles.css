@@ -18,6 +18,7 @@
   --accent-strong: #0ea5e9;
   --accent-contrast: #04202f;
   --accent-soft: rgba(56, 189, 248, 0.14);
+  --highlight: rgba(56, 189, 248, 0.3);
   --text: #e6edf7;
   --muted: #94a3b8;
   --danger: #f87171;
@@ -42,6 +43,7 @@
   --accent-strong: #0369a1;
   --accent-contrast: #f8fbff;
   --accent-soft: rgba(2, 132, 199, 0.12);
+  --highlight: rgba(2, 132, 199, 0.2);
   --text: #0f172a;
   --muted: #52627a;
   --danger: #dc2626;
@@ -51,6 +53,11 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* Rules such as `display: flex` would otherwise show elements marked hidden. */
+[hidden] {
+  display: none !important;
 }
 
 html {
@@ -418,6 +425,73 @@ footer p {
   font-size: 0.88rem;
 }
 
+.citations a,
+.back-link a,
+a.document-title {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.citations a:hover,
+.back-link a:hover,
+a.document-title:hover {
+  text-decoration: underline;
+}
+
+.citations a:focus-visible,
+.back-link a:focus-visible,
+a.document-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+
+.filters {
+  display: grid;
+  gap: 0 0.75rem;
+  margin-top: 0.4rem;
+}
+
+.filters + .hint {
+  margin: 0.75rem 0 0;
+}
+
+.back-link {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+}
+
+/* Documents are shown as written, keeping their own line breaks and spacing. */
+.reader {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.reader mark {
+  background: var(--highlight);
+  color: inherit;
+  border-radius: 0.2rem;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.account-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.account-section h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
 .documents {
   list-style: none;
   margin: 1rem 0 0;
@@ -578,6 +652,10 @@ footer {
 
   .actions.stack {
     flex-direction: row;
+  }
+
+  .filters {
+    grid-template-columns: 2fr 1fr;
   }
 
   button.primary-cta {
