@@ -25,14 +25,12 @@ function isConsonantAt(word: string, index: number, previousConsonant: boolean):
 
 function isConsonant(word: string, index: number): boolean {
   let previousConsonant = false;
+  let consonant = false;
   for (let cursor = 0; cursor <= index; cursor += 1) {
-    const consonant = isConsonantAt(word, cursor, previousConsonant);
-    if (cursor === index) {
-      return consonant;
-    }
+    consonant = isConsonantAt(word, cursor, previousConsonant);
     previousConsonant = consonant;
   }
-  return false;
+  return consonant;
 }
 
 /** Porter's measure `m`: the number of vowel-consonant sequences in a stem. */
