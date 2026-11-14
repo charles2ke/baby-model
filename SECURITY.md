@@ -33,6 +33,11 @@ documents, and test only against your own instance.
 - **Authentication** — `scrypt` password hashing, 256-bit session tokens stored
   only as SHA-256 hashes, `HttpOnly` + `SameSite=Strict` (+ `Secure` in
   production) cookies with server-side expiry.
+- **Session revocation** — changing the password requires the current one, is
+  rate limited like sign-in, and signs out every session before starting a
+  fresh one with a new CSRF token, so a stolen session token stops working
+  along with the old password. Other sessions can also be signed out on their
+  own from the Account page.
 - **CSRF** — a per-session token, compared in constant time, is required on
   every state-changing request.
 - **Authorisation** — every query is scoped by `user_id`; cross-account access
@@ -42,6 +47,9 @@ documents, and test only against your own instance.
 - **Browser hardening** — `helmet` with a strict CSP (`default-src 'self'`, no
   framing, no object sources), `Referrer-Policy: no-referrer`,
   `Permissions-Policy` denying device access and `Cache-Control: no-store`.
+  Document text, titles and excerpts are inserted as text nodes, never parsed
+  as HTML, and the passage a citation highlights is kept in memory rather than
+  written to the URL or browser storage.
 - **Crawlers and AI scrapers** — `robots.txt` disallows every user agent,
   including LLM crawlers, and every response carries a restrictive
   `X-Robots-Tag`. Confidential data is only ever served to an authenticated

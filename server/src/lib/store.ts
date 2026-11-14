@@ -35,6 +35,10 @@ export interface DocumentSummary {
   createdAt: string;
 }
 
+export interface StoredDocument extends DocumentSummary {
+  content: string;
+}
+
 export const CATEGORIES = ['health', 'finance', 'professional', 'education', 'other'] as const;
 export type Category = (typeof CATEGORIES)[number];
 
@@ -55,17 +59,22 @@ const SQL = {
   insertUser: 'INSERT INTO users (email, password_hash, wrapped_key, created_at) VALUES (?, ?, ?, ?)',
   selectUserByEmail: 'SELECT * FROM users WHERE email = ?',
   selectUserById: 'SELECT * FROM users WHERE id = ?',
+  updatePassword: 'UPDATE users SET password_hash = ? WHERE id = ?',
   insertSession:
     'INSERT INTO sessions (token_hash, user_id, csrf_token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
   selectSession: 'SELECT * FROM sessions WHERE token_hash = ?',
   deleteSession: 'DELETE FROM sessions WHERE token_hash = ?',
   deleteSessionsForUser: 'DELETE FROM sessions WHERE user_id = ?',
+  countOtherSessions:
+    'SELECT COUNT(*) AS count FROM sessions WHERE user_id = ? AND token_hash != ? AND expires_at > ?',
+  deleteOtherSessions: 'DELETE FROM sessions WHERE user_id = ? AND token_hash != ?',
   insertDocument:
     'INSERT INTO documents (user_id, title, category, byte_size, content_encrypted, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   insertChunk: 'INSERT INTO chunks (document_id, user_id, position, text_encrypted) VALUES (?, ?, ?, ?)',
   listDocuments:
     'SELECT id, title, category, byte_size, created_at FROM documents WHERE user_id = ? ORDER BY id DESC',
-  selectDocumentContent: 'SELECT title, content_encrypted FROM documents WHERE id = ? AND user_id = ?',
+  selectDocumentContent:
+    'SELECT id, title, category, byte_size, content_encrypted, created_at FROM documents WHERE id = ? AND user_id = ?',
   deleteDocument: 'DELETE FROM documents WHERE id = ? AND user_id = ?',
   deleteChunksForDocument: 'DELETE FROM chunks WHERE document_id = ? AND user_id = ?',
   chunksForUser: `SELECT c.id AS chunk_id, c.document_id, c.position, c.text_encrypted, d.title, d.category
@@ -177,6 +186,47 @@ export class Store {
     this.statement('deleteSessionsForUser').run(userId);
   }
 
+  /** Counts the user's unexpired sessions other than the one holding `token`. */
+  countOtherSessions(userId: number, token: string): number {
+    const row = this.statement('countOtherSessions').get(userId, hashToken(token), Date.now()) as {
+      count: number;
+    };
+    return row.count;
+  }
+
+  /**
+   * Signs out every session of the user except the one holding `token`, and
+   * returns how many of them were still active.
+   */
+  deleteOtherSessions(userId: number, token: string): number {
+    const signedOut = this.db.transaction(() => {
+      const active = this.countOtherSessions(userId, token);
+      this.statement('deleteOtherSessions').run(userId, hashToken(token));
+      return active;
+    })();
+    this.audit(userId, 'auth.logout_others', `sessions=${signedOut}`);
+    return signedOut;
+  }
+
+  /**
+   * Replaces the password and signs out every session of the user, the one
+   * holding `token` included, so that a stolen session stops working along
+   * with the old password. Data keys are wrapped with the master key rather
+   * than derived from the password, so no document needs re-encrypting.
+   * Returns how many of the user's other sessions were still active.
+   */
+  changePassword(userId: number, password: string, token: string): number {
+    const passwordHash = hashPassword(password);
+    const signedOut = this.db.transaction(() => {
+      const active = this.countOtherSessions(userId, token);
+      this.statement('updatePassword').run(passwordHash, userId);
+      this.statement('deleteSessionsForUser').run(userId);
+      return active;
+    })();
+    this.audit(userId, 'auth.password_change', `sessions=${signedOut}`);
+    return signedOut;
+  }
+
   addDocument(
     user: UserRow,
     title: string,
@@ -225,12 +275,28 @@ export class Store {
   }
 
   /** Returns a document only when it belongs to the requesting user. */
-  getDocumentContent(user: UserRow, documentId: number): { title: string; content: string } | undefined {
-    const row = this.statement('selectDocumentContent').get(documentId, user.id) as { title: string; content_encrypted: string } | undefined;
+  getDocumentContent(user: UserRow, documentId: number): StoredDocument | undefined {
+    const row = this.statement('selectDocumentContent').get(documentId, user.id) as
+      | {
+          id: number;
+          title: string;
+          category: string;
+          byte_size: number;
+          content_encrypted: string;
+          created_at: string;
+        }
+      | undefined;
     if (!row) {
       return undefined;
     }
-    return { title: row.title, content: decrypt(this.dataKeyFor(user), row.content_encrypted) };
+    return {
+      id: row.id,
+      title: row.title,
+      category: row.category,
+      byteSize: row.byte_size,
+      createdAt: row.created_at,
+      content: decrypt(this.dataKeyFor(user), row.content_encrypted),
+    };
   }
 
   deleteDocument(user: UserRow, documentId: number): boolean {
@@ -280,7 +346,7 @@ export class Store {
   exportAccount(user: UserRow): {
     email: string;
     createdAt: string;
-    documents: Array<DocumentSummary & { content: string }>;
+    documents: StoredDocument[];
   } {
     const dataKey = this.dataKeyFor(user);
     const rows = this.statement('exportDocuments').all(user.id) as Array<{

@@ -145,21 +145,106 @@
         <p class="page-intro">
           <span id="document-count">Everything stored in your vault</span>, encrypted at rest.
         </p>
+        <div id="document-filters" class="filters" role="search" hidden>
+          <div>
+            <label for="document-search">Search titles</label>
+            <input
+              id="document-search"
+              type="search"
+              maxlength="200"
+              autocomplete="off"
+              enterkeyhint="search"
+            />
+          </div>
+          <div>
+            <label for="document-filter">Filter by category</label>
+            <select id="document-filter">
+              <option value="">All categories</option>
+            </select>
+          </div>
+        </div>
+        <p id="document-filter-summary" class="hint" aria-live="polite" hidden></p>
         <ul id="document-list" class="documents"></ul>
+      </section>
+
+      <section id="document-page" class="page card" hidden>
+        <p class="back-link"><a href="#/documents"><span aria-hidden="true">←</span> All documents</a></p>
+        <h1 id="reader-title" tabindex="-1"></h1>
+        <p id="reader-meta" class="page-intro"></p>
+        <p id="reader-note" class="notice" hidden>The passage your answer quoted is highlighted.</p>
+        <div id="reader-content" class="reader"></div>
       </section>
 
       <section id="account-page" class="page card" hidden>
         <h1 tabindex="-1">Your account</h1>
         <p class="page-intro">Signed in as <span id="session-email"></span>.</p>
-        <div class="actions stack">
-          <button id="export-button" type="button" class="secondary">Export my data</button>
-          <button id="logout-button" type="button" class="secondary">Sign out</button>
-          <button id="delete-account-button" type="button" class="danger">Delete account</button>
-        </div>
-        <p class="hint">
-          Exporting downloads every document you have stored. Deleting your account erases the
-          account, its documents and their encryption keys for good.
-        </p>
+
+        <section class="account-section" aria-labelledby="sessions-heading">
+          <h2 id="sessions-heading">Sessions</h2>
+          <p id="sessions-summary" class="hint"></p>
+          <div class="actions stack">
+            <button id="logout-button" type="button" class="secondary">Sign out</button>
+            <button id="sign-out-others-button" type="button" class="secondary">
+              Sign out other sessions
+            </button>
+          </div>
+        </section>
+
+        <section class="account-section" aria-labelledby="password-heading">
+          <h2 id="password-heading">Change password</h2>
+          <form id="password-form">
+            <!-- Lets password managers store the new password for the right account. -->
+            <input id="account-username" name="username" type="text" autocomplete="username" hidden />
+            <label for="current-password">Current password</label>
+            <input
+              id="current-password"
+              name="current-password"
+              type="password"
+              autocomplete="current-password"
+              maxlength="200"
+              required
+            />
+            <label for="new-password">New password</label>
+            <input
+              id="new-password"
+              name="new-password"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="200"
+              aria-describedby="new-password-hint"
+              required
+            />
+            <p id="new-password-hint" class="hint">
+              At least 12 characters. Every other session is signed out once it changes.
+            </p>
+            <label for="confirm-password">Confirm new password</label>
+            <input
+              id="confirm-password"
+              name="confirm-password"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="200"
+              required
+            />
+            <div class="actions">
+              <button id="change-password-button" type="submit">Change password</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="account-section" aria-labelledby="data-heading">
+          <h2 id="data-heading">Your data</h2>
+          <div class="actions stack">
+            <button id="export-button" type="button" class="secondary">Export my data</button>
+            <button id="delete-account-button" type="button" class="danger">Delete account</button>
+          </div>
+          <p class="hint">
+            Exporting downloads every document you have stored. Deleting your account erases the
+            account, its documents and their encryption keys for good.
+          </p>
+        </section>
       </section>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>

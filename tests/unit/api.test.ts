@@ -30,15 +30,24 @@ interface Session {
   csrfToken: string;
 }
 
-async function register(app: Express, email: string): Promise<Session> {
-  const response = await request(app)
-    .post('/api/auth/register')
-    .send({ email, password: PASSWORD })
-    .expect(201);
+/** The session a response issued, through its cookie and CSRF token. */
+function sessionFrom(response: request.Response): Session {
   return {
     cookie: (response.headers['set-cookie'] as unknown as string[])[0].split(';')[0],
     csrfToken: response.body.csrfToken,
   };
+}
+
+async function register(app: Express, email: string): Promise<Session> {
+  return sessionFrom(
+    await request(app).post('/api/auth/register').send({ email, password: PASSWORD }).expect(201),
+  );
+}
+
+async function login(app: Express, email: string, password = PASSWORD): Promise<Session> {
+  return sessionFrom(
+    await request(app).post('/api/auth/login').send({ email, password }).expect(200),
+  );
 }
 
 function authed(app: Express, method: 'get' | 'post' | 'delete', url: string, session: Session) {
@@ -172,6 +181,8 @@ describe('api', () => {
     await request(app).get('/api/documents').expect(401);
     await request(app).post('/api/ask').send({ question: 'anything' }).expect(401);
     await request(app).get('/api/account/export').expect(401);
+    await request(app).get('/api/account/sessions').expect(401);
+    await request(app).delete('/api/account/sessions/others').expect(401);
     await request(app).get('/api/documents').set('Cookie', `${SESSION_COOKIE}=forged`).expect(401);
   });
 
@@ -250,7 +261,8 @@ describe('api', () => {
       .expect(201);
     const id = created.body.document.id;
 
-    await authed(app, 'get', `/api/documents/${id}`, owner).expect(200);
+    const own = await authed(app, 'get', `/api/documents/${id}`, owner).expect(200);
+    expect(own.body.document).toEqual({ ...created.body.document, content: 'Net pay is 4200 EUR.' });
     await authed(app, 'get', `/api/documents/${id}`, intruder).expect(404);
     await authed(app, 'delete', `/api/documents/${id}`, intruder).expect(404);
     await authed(app, 'get', '/api/documents/not-a-number', intruder).expect(404);
@@ -325,6 +337,78 @@ describe('api', () => {
     await attempt();
     await attempt();
     await attempt().expect(429);
+  });
+
+  it('changes the password and replaces every session', async () => {
+    const session = await register(app, 'user@example.com');
+    const phone = await login(app, 'user@example.com');
+    const changed = await authed(app, 'post', '/api/account/password', session)
+      .send({ currentPassword: PASSWORD, newPassword: 'a-brand-new-password' })
+      .expect(200);
+    expect(changed.body.signedOutSessions).toBe(1);
+    const renewed = sessionFrom(changed);
+    expect(renewed.csrfToken).not.toBe(session.csrfToken);
+
+    await authed(app, 'get', '/api/auth/me', session).expect(401);
+    await authed(app, 'get', '/api/auth/me', phone).expect(401);
+    await authed(app, 'get', '/api/auth/me', renewed).expect(200);
+    await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'user@example.com', password: PASSWORD })
+      .expect(401);
+    await login(app, 'user@example.com', 'a-brand-new-password');
+  });
+
+  it('refuses password changes that are invalid or not proven', async () => {
+    const session = await register(app, 'user@example.com');
+    const change = { currentPassword: PASSWORD, newPassword: 'a-brand-new-password' };
+    await request(app).post('/api/account/password').send(change).expect(401);
+    await request(app).post('/api/account/password').set('Cookie', session.cookie).send(change).expect(403);
+    await authed(app, 'post', '/api/account/password', session)
+      .send({ currentPassword: PASSWORD, newPassword: 'short' })
+      .expect(400);
+    await authed(app, 'post', '/api/account/password', session)
+      .send({ newPassword: 'a-brand-new-password' })
+      .expect(400);
+    const wrong = await authed(app, 'post', '/api/account/password', session)
+      .send({ currentPassword: 'not-my-password', newPassword: 'a-brand-new-password' })
+      .expect(403);
+    expect(wrong.body.error).toBe('Your current password is incorrect');
+    // A full-width letter is the same password once normalised, as it is when hashed.
+    await authed(app, 'post', '/api/account/password', session)
+      .send({ currentPassword: PASSWORD, newPassword: `\uFF41${PASSWORD.slice(1)}` })
+      .expect(400);
+
+    await authed(app, 'get', '/api/auth/me', session).expect(200);
+    await login(app, 'user@example.com');
+  });
+
+  it('rate limits password change attempts like sign-ins', async () => {
+    process.env.AUTH_RATE_LIMIT = '2';
+    const limitedApp = createApp({ config: testConfig(), db: openDatabase(':memory:') });
+    delete process.env.AUTH_RATE_LIMIT;
+    const session = await register(limitedApp, 'user@example.com');
+    const attempt = () =>
+      authed(limitedApp, 'post', '/api/account/password', session).send({
+        currentPassword: 'a-guessed-password',
+        newPassword: 'a-brand-new-password',
+      });
+    await attempt().expect(403);
+    await attempt().expect(429);
+  });
+
+  it('counts and signs out the other sessions of the account', async () => {
+    const session = await register(app, 'user@example.com');
+    const laptop = await login(app, 'user@example.com');
+    await login(app, 'user@example.com');
+    const stranger = await register(app, 'other@example.com');
+
+    await authed(app, 'get', '/api/account/sessions', session).expect(200, { others: 2 });
+    await request(app).delete('/api/account/sessions/others').set('Cookie', session.cookie).expect(403);
+    await authed(app, 'delete', '/api/account/sessions/others', session).expect(200, { signedOut: 2 });
+    await authed(app, 'get', '/api/auth/me', laptop).expect(401);
+    await authed(app, 'get', '/api/auth/me', stranger).expect(200);
+    await authed(app, 'get', '/api/account/sessions', session).expect(200, { others: 0 });
   });
 
   it('tells every crawler to stay away', async () => {
