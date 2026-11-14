@@ -18,27 +18,47 @@ export function tokenize(text: string): string[] {
 /* ------------------------------------------------------- Porter stemmer */
 
 /** A consonant is any letter but a vowel, and `y` only when it follows a vowel or starts the word. */
-function isConsonant(word: string, index: number): boolean {
+function isConsonantAt(word: string, index: number, previousConsonant: boolean): boolean {
   const letter = word[index] as string;
-  if ('aeiou'.includes(letter)) {
-    return false;
+  return letter === 'y' ? index === 0 || !previousConsonant : !'aeiou'.includes(letter);
+}
+
+function isConsonant(word: string, index: number): boolean {
+  let previousConsonant = false;
+  for (let cursor = 0; cursor <= index; cursor += 1) {
+    const consonant = isConsonantAt(word, cursor, previousConsonant);
+    if (cursor === index) {
+      return consonant;
+    }
+    previousConsonant = consonant;
   }
-  return letter !== 'y' || index === 0 || !isConsonant(word, index - 1);
+  return false;
 }
 
 /** Porter's measure `m`: the number of vowel-consonant sequences in a stem. */
 function measure(stem: string): number {
   let count = 0;
+  let previousConsonant = stem.length > 0 && isConsonantAt(stem, 0, false);
   for (let index = 1; index < stem.length; index += 1) {
-    if (isConsonant(stem, index) && !isConsonant(stem, index - 1)) {
+    const consonant = isConsonantAt(stem, index, previousConsonant);
+    if (consonant && !previousConsonant) {
       count += 1;
     }
+    previousConsonant = consonant;
   }
   return count;
 }
 
 function hasVowel(stem: string): boolean {
-  return [...stem].some((_letter, index) => !isConsonant(stem, index));
+  let previousConsonant = false;
+  for (let index = 0; index < stem.length; index += 1) {
+    const consonant = isConsonantAt(stem, index, previousConsonant);
+    if (!consonant) {
+      return true;
+    }
+    previousConsonant = consonant;
+  }
+  return false;
 }
 
 function endsWithDoubleConsonant(stem: string): boolean {

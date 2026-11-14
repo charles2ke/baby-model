@@ -43,6 +43,12 @@ describe('text', () => {
     }
   });
 
+  it('stems very long tokens without recursive classification', () => {
+    const longConsonantRun = 'y'.repeat(50_000);
+    expect(stem(`${longConsonantRun}eed`)).toBe(`${longConsonantRun}e`);
+    expect(stem(`${longConsonantRun}ing`)).toBe(`${longConsonantRun.slice(0, -1)}i`);
+  });
+
   it('leaves figures, identifiers and non-English letters unstemmed', () => {
     for (const token of ['2011', '$120.50', '2024-05-01', 'b12', 'naïve']) {
       expect(stem(token)).toBe(token);
