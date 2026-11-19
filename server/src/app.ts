@@ -31,6 +31,11 @@ const credentialsSchema = z.object({
   password: z.string().min(12).max(200),
 });
 
+const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(12).max(200),
+});
+
 const documentSchema = z.object({
   title: z.string().trim().min(1).max(200),
   category: z.enum(CATEGORIES),
@@ -372,6 +377,47 @@ export function createApp(deps: AppDeps = {}): express.Express & { locals: { sto
 
   app.get('/api/account/export', requireAuth, (req: AuthenticatedRequest, res) => {
     res.json(store.exportAccount(req.user as UserRow));
+  });
+
+  /**
+   * Changes the password once the current one is confirmed, so that a session
+   * left open on a shared device cannot lock its owner out. Every session is
+   * then signed out and this one is replaced, so a stolen session token stops
+   * working along with the old password.
+   */
+  app.post('/api/account/password', authLimiter, requireAuth, (req: AuthenticatedRequest, res) => {
+    const parsed = passwordChangeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: 'Your current password and a new password of at least 12 characters are required' });
+      return;
+    }
+    const user = req.user as UserRow;
+    const { currentPassword, newPassword } = parsed.data;
+    if (!store.authenticate(user.email, currentPassword)) {
+      store.audit(user.id, 'auth.password_change_failed');
+      res.status(403).json({ error: 'Your current password is incorrect' });
+      return;
+    }
+    if (newPassword.normalize('NFKC') === currentPassword.normalize('NFKC')) {
+      res.status(400).json({ error: 'The new password must be different from the current one' });
+      return;
+    }
+    const signedOutSessions = store.changePassword(user.id, newPassword, req.sessionToken as string);
+    const session = store.createSession(user.id, config.sessionTtlMs);
+    setSessionCookie(res, session.token, config.sessionTtlMs);
+    res.json({ csrfToken: session.csrfToken, signedOutSessions });
+  });
+
+  app.get('/api/account/sessions', requireAuth, (req: AuthenticatedRequest, res) => {
+    res.json({ others: store.countOtherSessions((req.user as UserRow).id, req.sessionToken as string) });
+  });
+
+  app.delete('/api/account/sessions/others', requireAuth, (req: AuthenticatedRequest, res) => {
+    res.json({
+      signedOut: store.deleteOtherSessions((req.user as UserRow).id, req.sessionToken as string),
+    });
   });
 
   app.delete('/api/account', requireAuth, (req: AuthenticatedRequest, res) => {

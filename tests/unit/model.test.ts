@@ -101,4 +101,73 @@ describe('model', () => {
       'First line. Second line.',
     );
   });
+
+  it('matches questions to documents that use other forms of the words', () => {
+    const records = [
+      chunk(1, 'Payment of $120.50 to City Power on March 3.', 'Bank statement', 'finance'),
+      chunk(2, 'Tetanus vaccination first given in 2011.', 'Health record'),
+    ];
+    expect(answerQuestion('What were my payments?', records).answer).toBe(
+      'Payment of $120.50 to City Power on March 3.',
+    );
+    expect(answerQuestion('When was I vaccinated?', records).answer).toBe(
+      '• Tetanus vaccination first given in 2011.',
+    );
+  });
+
+  it('quotes the sentence that answers the question before others sharing a word', () => {
+    const panel =
+      'Cholesterol is measured every year. Cholesterol results go to the clinic. ' +
+      'Cholesterol targets were discussed. LDL cholesterol was 98 mg/dL.';
+    expect(extractRelevantSentences('What is my LDL cholesterol?', panel)).toBe(
+      'Cholesterol is measured every year. Cholesterol results go to the clinic. LDL cholesterol was 98 mg/dL.',
+    );
+  });
+
+  it('leaves out sentences that match far less than the best one', () => {
+    const weight = (term: string) => (term === 'ldl' ? 3 : 1);
+    expect(
+      extractRelevantSentences(
+        'LDL cholesterol',
+        'Cholesterol is measured every year. LDL cholesterol was 98 mg/dL.',
+        weight,
+      ),
+    ).toBe('LDL cholesterol was 98 mg/dL.');
+  });
+
+  it('weighs question terms by how rare they are across the documents', () => {
+    const panels = [
+      chunk(1, 'Cholesterol is measured every year. LDL cholesterol was 98 mg/dL.', 'Blood panel'),
+      chunk(2, 'Cholesterol medication was reviewed.', 'Clinic letter'),
+    ];
+    const result = answerQuestion('What is my LDL cholesterol?', panels);
+    expect(result.citations[0].excerpt).toBe('LDL cholesterol was 98 mg/dL.');
+  });
+
+  it('cites overlapping chunks of a document only for sentences not quoted yet', () => {
+    const statement = [
+      { ...chunk(1, 'Opening balance was $1,200.00. Payment of $120.50 to City Power on March 3.'), documentId: 7 },
+      {
+        ...chunk(2, 'Payment of $120.50 to City Power on March 3. Payment of $45.00 to Water Co on March 9.'),
+        documentId: 7,
+        position: 1,
+      },
+    ];
+    const result = answerQuestion('What were my payments?', statement);
+    expect(result.answer).toBe(
+      'Payment of $120.50 to City Power on March 3. Payment of $45.00 to Water Co on March 9.',
+    );
+    expect(result.citations.map((citation) => citation.position)).toEqual([1]);
+  });
+
+  it('quotes each line of a note once when overlapping chunks match it', () => {
+    const card = [
+      { ...chunk(1, 'Allergies: penicillin\nBlood type: O positive'), documentId: 9 },
+      { ...chunk(2, 'Blood type: O positive\nGP: Dr Byrne at Main Street clinic'), documentId: 9, position: 1 },
+      { ...chunk(3, 'GP: Dr Byrne at Main Street clinic\nInsurance number HX-4471'), documentId: 9, position: 2 },
+    ];
+    const result = answerQuestion('What is my blood type and GP?', card);
+    expect(result.answer).toBe('Blood type: O positive GP: Dr Byrne at Main Street clinic');
+    expect(result.citations.map((citation) => citation.position)).toEqual([1]);
+  });
 });

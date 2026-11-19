@@ -58,7 +58,10 @@ describe('store', () => {
     };
     expect(raw.content_encrypted).not.toContain('cholesterol');
 
-    expect(store.getDocumentContent(owner, doc.id)?.content).toContain('cholesterol');
+    expect(store.getDocumentContent(owner, doc.id)).toEqual({
+      ...doc,
+      content: 'HDL cholesterol was 62 mg/dL.',
+    });
     expect(store.getDocumentContent(other, doc.id)).toBeUndefined();
     expect(store.listDocuments(owner.id)).toHaveLength(1);
     expect(store.listDocuments(other.id)).toHaveLength(0);
@@ -93,6 +96,40 @@ describe('store', () => {
     const revoked = store.createSession(user.id, 60_000);
     store.deleteSessionsForUser(user.id);
     expect(store.getSession(revoked.token)).toBeUndefined();
+  });
+
+  it('counts and signs out the other sessions of a user', () => {
+    const store = makeStore();
+    const user = store.createUser('user@example.com', 'a-very-long-password');
+    const other = store.createUser('other@example.com', 'another-long-password');
+    const current = store.createSession(user.id, 60_000);
+    const laptop = store.createSession(user.id, 60_000);
+    store.createSession(user.id, 60_000);
+    store.createSession(user.id, -1);
+    const elsewhere = store.createSession(other.id, 60_000);
+
+    expect(store.countOtherSessions(user.id, current.token)).toBe(2);
+    expect(store.deleteOtherSessions(user.id, current.token)).toBe(2);
+    expect(store.countOtherSessions(user.id, current.token)).toBe(0);
+    expect(store.getSession(current.token)?.userId).toBe(user.id);
+    expect(store.getSession(laptop.token)).toBeUndefined();
+    expect(store.getSession(elsewhere.token)?.userId).toBe(other.id);
+  });
+
+  it('changes a password, signs out every session and keeps documents readable', () => {
+    const store = makeStore();
+    const user = store.createUser('user@example.com', 'a-very-long-password');
+    const current = store.createSession(user.id, 60_000);
+    const phone = store.createSession(user.id, 60_000);
+    store.addDocument(user, 'Notes', 'other', 'Still readable after the change.');
+
+    expect(store.changePassword(user.id, 'a-brand-new-password', current.token)).toBe(1);
+    expect(store.authenticate('user@example.com', 'a-very-long-password')).toBeUndefined();
+    const reloaded = store.authenticate('user@example.com', 'a-brand-new-password');
+    expect(reloaded?.id).toBe(user.id);
+    expect(store.getSession(current.token)).toBeUndefined();
+    expect(store.getSession(phone.token)).toBeUndefined();
+    expect(store.chunksForUser(reloaded as typeof user)[0].text).toBe('Still readable after the change.');
   });
 
   it('exports and erases all account data', () => {

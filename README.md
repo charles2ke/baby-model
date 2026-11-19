@@ -81,16 +81,21 @@ Everything is stored on the machine you run it on: a single SQLite file in
 
 1. **Add** — a document (pasted text, an uploaded UTF-8 file or a provider
    export converted locally by an [integration](#real-world-integrations)) is
-   split into sentences and grouped into overlapping chunks.
+   split into sentences and lines, then grouped into chunks of up to 600
+   characters. Consecutive chunks share a sentence where it fits, so a fact on
+   a chunk boundary is not lost.
 2. **Store** — document text and chunks are sealed with AES-256-GCM under a
    per-user data key, which is itself wrapped with the server `MASTER_KEY`, and
    written to SQLite alongside the owner's `user_id`.
-3. **Retrieve** — a question is tokenised and ranked against *only* that user's
+3. **Retrieve** — a question is tokenised and stemmed, so `renewal` also
+   matches `renewed` and `renews`, then ranked against *only* that user's
    chunks with TF-IDF cosine similarity.
-4. **Answer** — the best-matching sentences are returned verbatim with citations
-   back to the document and section; a [skill](#skills) may reshape them into a
-   summary, timeline or list of figures. If nothing relevant is found, the model
-   refuses instead of guessing.
+4. **Answer** — from each of the best chunks, up to three sentences carrying
+   the most distinctive question terms are quoted verbatim, each only once,
+   with citations back to the document and section. A citation opens the
+   document with the quoted passage highlighted. A [skill](#skills) may reshape
+   the quotes into a summary, timeline or list of figures. If nothing relevant
+   is found, the model refuses instead of guessing.
 
 No step calls an external service, and no step can read a chunk that belongs to
 another account.
@@ -104,8 +109,13 @@ another account.
   Health, CSV statements from a bank or card issuer, `.eml` messages from a mail
   client and `.ics` calendar exports. Each file is converted to readable text
   locally, then stored encrypted like any other document.
-- **Grounded question answering** — TF-IDF retrieval over your own chunks plus
-  extractive answering, with citations back to the document and section.
+- **Grounded question answering** — TF-IDF retrieval over your own chunks, with
+  stemming so that `vaccinated` also finds `vaccination`, plus extractive
+  answering that quotes each sentence once, with citations back to the
+  document and section.
+- **Citations you can check** — a citation opens its document in a reader with
+  the quoted passage highlighted and scrolled into view, so an answer can be
+  checked against its source in one click.
 - **Skills** — reusable, Claude-style skills (a name, a description of when to
   use it and a deterministic procedure) reshape a grounded answer into a
   summary, a timeline or a list of figures when the question calls for it,
@@ -118,9 +128,15 @@ another account.
 - **Guidance when the vault is empty** — the Ask page points a new account at the
   Add page instead of answering nothing, and the Documents page shows how much is
   stored, each item with a readable size and the date it was added.
+- **Find a document fast** — the Documents page searches titles and filters by
+  category as you type, says how many documents match, and opens any of them
+  in the reader.
 - **Safe by default** — deleting a document or the account asks first, the
   sign-in password can be revealed while typing it, and a status message is
   cleared when you move to another page rather than following you around.
+- **Account security** — the Account page shows how many other sessions are
+  signed in and signs them out on request; changing the password requires the
+  current one and signs out every other session.
 - **Mobile first** — a thumb-friendly bottom tab bar, full-width controls, large
   tap targets and safe-area padding on phones; the same tabs move to the top on
   larger screens.
@@ -188,6 +204,18 @@ another account.
 ### Skills reshape a grounded answer into a timeline, a summary or a list of figures
 
 ![Skills reshape a grounded answer into a timeline, a summary or a list of figures](docs/screenshots/13-skill-timeline.png)
+
+### A citation opens its document with the quoted passage highlighted
+
+![A citation opens its document with the quoted passage highlighted](docs/screenshots/14-document-reader.png)
+
+### Search document titles and filter the list by category
+
+![Search document titles and filter the list by category](docs/screenshots/15-document-filters.png)
+
+### See other signed-in sessions, sign them out and change the password
+
+![See other signed-in sessions, sign them out and change the password](docs/screenshots/16-account-security.png)
 <!-- screenshots:end -->
 
 ## Security and privacy design
@@ -195,7 +223,8 @@ another account.
 | Concern | Control |
 | --- | --- |
 | Password storage | `scrypt` (N=16384, r=8, p=1) with a per-password random salt |
-| Session handling | 256-bit random tokens, only their SHA-256 hash is stored, `HttpOnly` + `SameSite=Strict` (+ `Secure` in production) cookies, server-side expiry and revocation |
+| Password changes | Require the current password, under the same rate limit as sign-in; a change signs out every session, the current one included, and starts a fresh session with a new CSRF token |
+| Session handling | 256-bit random tokens, only their SHA-256 hash is stored, `HttpOnly` + `SameSite=Strict` (+ `Secure` in production) cookies, server-side expiry and revocation; every other session can be signed out from the Account page |
 | CSRF | Per-session CSRF token required on every state-changing request |
 | Encryption at rest | Documents and chunks are encrypted with AES-256-GCM using a per-user data key, which is itself wrapped with the server `MASTER_KEY` |
 | Database | SQLite file created with `0600` permissions inside a `0700` data directory |
@@ -204,7 +233,8 @@ another account.
 | Abuse protection | Global, per-question and per-authentication rate limits, upload size limits, UTF-8 text-only uploads |
 | Crawlers & AI scrapers | `robots.txt` disallows every user agent (including `GPTBot`, `Google-Extended`, `ClaudeBot`, `CCBot`, `PerplexityBot` and friends) and every response carries `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, noai, noimageai`. Nothing beyond the sign-in page is reachable without a session anyway |
 | Prompt injection | Instruction-like passages, hidden control characters and exfiltration URLs found in stored documents are redacted from answers, excerpts and titles; answers stay extractive and never leave the server |
-| Auditability | Append-only `audit_log` of registrations, logins, document changes, questions, exports and erasures (no document content is logged) |
+| Untrusted text in the page | Document text, titles and excerpts are inserted as text nodes and never parsed as HTML; the passage a citation highlights is kept in memory, never in the URL or browser storage |
+| Auditability | Append-only `audit_log` of registrations, logins, password changes, session sign-outs, document changes, questions, exports and erasures (no document content is logged) |
 | No third parties | No analytics, no external fonts or CDNs, no outbound model API calls |
 
 ### Data-protection compliance notes
@@ -227,14 +257,16 @@ another account.
 
 ```
 web/                 Static portal: one page per task (#/ask, #/add, #/documents,
-                     #/account), mobile first, CSP-friendly, no third-party requests
+                     #/documents/<id>, #/account), mobile first, CSP-friendly,
+                     no third-party requests
 server/src/app.ts    Express application: auth, documents, question answering
 server/src/lib/
   config.ts          Environment configuration and master key loading
   crypto.ts          scrypt password hashing, AES-256-GCM sealing, key wrapping
   db.ts              SQLite schema and hardened file permissions
   store.ts           Owner-scoped data access for users, sessions and documents
-  text.ts            Tokenisation, sentence splitting and chunking
+  text.ts            Tokenisation, Porter stemming, sentence splitting and
+                     overlapping chunks
   integrations.ts    Real-world connectors: FHIR, bank CSV, email, iCalendar
   skills.ts          Claude-style skills that reshape grounded answers
   model.ts           TF-IDF retrieval and extractive, cited answering
@@ -252,12 +284,15 @@ tests/e2e/           Playwright end-to-end tests that also produce the screensho
 | `GET` | `/api/auth/me` | Current account and CSRF token |
 | `GET` | `/api/documents` | List your documents |
 | `POST` | `/api/documents` | Add a document (JSON body or file upload) |
-| `GET` | `/api/documents/:id` | Read one of your documents |
+| `GET` | `/api/documents/:id` | Read one of your documents: its text, title, category, size and date |
 | `DELETE` | `/api/documents/:id` | Delete one of your documents |
 | `GET` | `/api/integrations` | List the real-world import connectors |
 | `POST` | `/api/integrations/:id/import` | Import a provider export as a document |
 | `GET` | `/api/skills` | List the skills the model can apply |
 | `POST` | `/api/ask` | Ask a question answered only from your documents |
+| `POST` | `/api/account/password` | Change the password; signs out every session and returns the new session's CSRF token |
+| `GET` | `/api/account/sessions` | Count your other signed-in sessions |
+| `DELETE` | `/api/account/sessions/others` | Sign out every session but this one |
 | `GET` | `/api/account/export` | Export everything stored about you |
 | `DELETE` | `/api/account` | Erase your account and all data |
 
@@ -328,8 +363,8 @@ Playwright needs its browser once: `npx playwright install --with-deps chromium`
 
 | Suite | What it proves |
 | --- | --- |
-| `tests/unit` | Crypto, storage, retrieval, skills, integrations and every API route, at 100% coverage |
-| `tests/e2e` | Sign-up, adding and importing documents, grounded answers and refusals, account isolation, deletion and erasure, mobile layout, themes and the interaction details above |
+| `tests/unit` | Crypto, storage, stemming, retrieval, skills, integrations and every API route, at 100% coverage |
+| `tests/e2e` | Sign-up, adding and importing documents, grounded answers and refusals, searching, filtering and reading documents, highlighted citations, account isolation, password changes and session sign-outs, deletion and erasure, mobile layout, themes and the interaction details above |
 
 ### Coverage
 
@@ -351,6 +386,10 @@ Playwright needs its browser once: `npx playwright install --with-deps chromium`
 | An import is refused with an explanation | The file does not match the chosen source, e.g. a FHIR bundle that is not valid JSON. Pick the matching source or paste the contents as plain text |
 | `Too many attempts, please try again later.` while signing in | The authentication rate limit. Wait, or raise `AUTH_RATE_LIMIT` in development |
 | Answers refuse everything | The vault is empty or nothing matched. Add a document with the wording you expect to ask about; the Ask page says so when there is nothing stored |
+| An answer quotes a sentence about a related but different word | Words are matched on their stems, and stemming is not perfect: `university` and `universe`, or `organ` and `organization`, share a stem. Add a more specific word to the question |
+| An older document misses a fact on a chunk boundary, or its lines run together in answers | Documents keep the chunks they were stored with, and those added before chunks overlapped and kept line breaks are not re-chunked. Delete the document and add it again |
+| A citation highlights nothing, or another copy of the quoted passage | When a passage appears more than once in a document, the earliest copy is highlighted. When part of a quote was redacted, only the sentences it still quotes in full are highlighted, and if there are none, nothing is. The whole document is shown either way |
+| `Invalid CSRF token` in another tab | That tab still holds the token of a session that has ended, for example after the password was changed or you signed in again in another tab. Reload the tab |
 | `npm run test:e2e` cannot start a browser | Run `npx playwright install --with-deps chromium` once |
 
 ## Documentation site
